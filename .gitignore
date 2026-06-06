@@ -5,3 +5,8 @@ dist/
 build/
 *.log
 .DS_Store
+
+# PoC: бинарь kubo и репозиторий узла — не в git
+poc/bin/
+poc/ipfs-repo/
+poc/registry/registry.json
