@@ -10,3 +10,7 @@ build/
 poc/bin/
 poc/ipfs-repo/
 poc/registry/registry.json
+
+# Инфраструктурные детали второго узла — не в git
+poc/ops-staging.md
+poc/observer-repo/
