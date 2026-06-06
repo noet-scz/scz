@@ -47,13 +47,17 @@
     return 'data:image/svg+xml,' + encodeURIComponent(svg);
   }
   function publishToRelay(ev) {
-    return new Promise((resolve, reject) => {
-      let ws; try { ws = new WebSocket('ws://relay.nt/'); } catch (e) { return reject(e); }
+    const urls = ['ws://relay.nt/relay', 'ws://127.0.0.1:8090/relay'];
+    const tryOne = (i) => new Promise((resolve, reject) => {
+      let ws; try { ws = new WebSocket(urls[i]); } catch (e) { return reject(e); }
+      let opened = false;
       const to = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('таймаут зала')); }, 6000);
-      ws.onopen = () => ws.send(JSON.stringify(['EVENT', ev]));
+      ws.onopen = () => { opened = true; ws.send(JSON.stringify(['EVENT', ev])); };
       ws.onmessage = (m) => { let a; try { a = JSON.parse(m.data); } catch { return; } if (a[0] === 'OK' && a[1] === ev.id) { clearTimeout(to); try { ws.close(); } catch {} a[2] ? resolve() : reject(new Error(a[3] || 'отклонено')); } };
-      ws.onerror = () => { clearTimeout(to); reject(new Error('нет связи с залой')); };
+      ws.onerror = () => { clearTimeout(to); reject(Object.assign(new Error('нет связи с залой'), { reconnectable: !opened })); };
+      ws.onclose = () => { if (!opened) { clearTimeout(to); reject(Object.assign(new Error('нет связи с залой'), { reconnectable: true })); } };
     });
+    return tryOne(0).catch((e) => e && e.reconnectable ? tryOne(1) : Promise.reject(e));
   }
 
   const Noet = window.Noet = {

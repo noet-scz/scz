@@ -87,16 +87,21 @@ function ingest(ev){
   return false;
 }
 
+// сначала по имени зоны (через прокси), при неудаче — прямо на локальный портал
+const WS_URLS=['ws://'+location.host+'/relay','ws://127.0.0.1:8090/relay'];
+let wsIdx=0;
 function connect(){
-  try{ ws=new WebSocket('ws://'+location.host+'/relay'); }catch(e){ setTimeout(connect,2000); return; }
-  ws.onopen=()=>{ connected=true; $('#dot').classList.add('on');
+  const url=WS_URLS[wsIdx%WS_URLS.length];
+  try{ ws=new WebSocket(url); }catch(e){ wsIdx++; setTimeout(connect,1200); return; }
+  let opened=false;
+  ws.onopen=()=>{ opened=true; connected=true; $('#dot').classList.add('on');
     ws.send(JSON.stringify(['REQ','m',{kinds:[1],limit:300}]));
     ws.send(JSON.stringify(['REQ','p',{kinds:[0],limit:1000}])); };
   ws.onmessage=m=>{ let a; try{a=JSON.parse(m.data);}catch{return;}
     if(a[0]==='EVENT'){ if(ingest(a[2])) render(); }
     else if(a[0]==='EOSE'){ render(); }
   };
-  ws.onclose=()=>{ connected=false; $('#dot').classList.remove('on'); ws=null; setTimeout(connect,1500); };
+  ws.onclose=()=>{ connected=false; $('#dot').classList.remove('on'); ws=null; if(!opened) wsIdx++; setTimeout(connect,1200); };
   ws.onerror=()=>{ try{ws.close();}catch{} };
 }
 
