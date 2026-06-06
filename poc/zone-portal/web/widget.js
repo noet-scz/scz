@@ -217,7 +217,7 @@
       if (isTrusted) {
         body = nav +
           `<div class=sub>${m.nip07 ? 'Найден внешний ключ (расширение) — войдём через него.' : 'Личность это твой ключ. Нет ключа — создадим прямо здесь.'}</div>
-           <label>Имя в зоне (хэндл)</label><input id=l_handle placeholder="например nyx">
+           <label>Имя в зоне (хэндл)</label><input id=l_handle placeholder="2–20 символов: a-z 0-9 _">
            <label>Инвайт-код</label><input id=l_invite placeholder="код приглашения">
            <button class=btn id=l_go>Войти / Регистрация</button>
            ${m.nip07 ? '' : '<div class=row style="margin-top:8px"><button class="lnk" id=l_gen>Создать ключ</button><button class="lnk" id=l_imp>Импорт ключа</button></div>'}
