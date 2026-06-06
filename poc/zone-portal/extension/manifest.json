@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "СЦЗ — зона .scz",
+  "version": "0.2",
+  "description": "Резолвер зоны СЦЗ: открывает имена *.scz прямо в браузере через прокси-резолвер. Клик по иконке — вкл/выкл.",
+  "permissions": ["proxy", "storage"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Зона .scz — вкл/выкл" }
+}

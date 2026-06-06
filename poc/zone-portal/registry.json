@@ -1,6 +1,6 @@
 {
   "names": {
-    "манифест.зона": { "cid": "bafybeieq2jffe7aq3wtkfuiql6ickrwieqio2yl63xmfwenvtv3l5zafea", "owner": "founder", "ts": 0, "title": "Манифест · СЦЗ" },
-    "практики.зона": { "cid": "bafybeidcbuxyrkrisvgjtbedvadl26h23c3xhqfrpgcnczncll6vcanyfi", "owner": "founder", "ts": 0, "title": "Практики метакогниции · СЦЗ" }
+    "manifest.scz": { "cid": "bafybeiawngonucszyhow2666n2gtqrqbj2nr36i7vkr5mvsxmiu3vpog4u", "owner": "founder", "ts": 0, "title": "Манифест · СЦЗ" },
+    "practices.scz": { "cid": "bafybeiadgjgp4euc4kqbzhziho6otdlccptfheqyrdlq7zj6b735emeuji", "owner": "founder", "ts": 0, "title": "Практики метакогниции · СЦЗ" }
   }
 }
