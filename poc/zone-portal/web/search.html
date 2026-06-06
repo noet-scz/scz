@@ -13,8 +13,9 @@
   form{width:100%;display:flex;gap:.5rem}
   #q{flex:1;font-size:1.05rem;border-radius:14px;padding:.95rem 1.1rem}
   #q::placeholder{color:#5b5b66}
-  .go{background:var(--acc);border:0;border-radius:14px;color:#fff;padding:0 1.4rem;font-weight:600}
+  .go{background:var(--acc);border:0;border-radius:14px;color:#fff;padding:0 1.25rem;display:inline-flex;align-items:center;justify-content:center}
   .go:hover{background:#6c4dff}
+  .go svg{width:21px;height:21px;display:block}
   #res{width:100%;margin-top:1.4rem}
   .item{padding:.85rem .2rem;border-bottom:1px solid #16161d}
   .item a.title{color:var(--acc2);font-size:1.1rem;font-weight:550}
@@ -29,14 +30,14 @@
 <div class=stage>
   <div class=mark>
     <img src="/logo.svg" alt="">
-    <div><h1>noet</h1><div class=t>единица мысли · зона .nt</div></div>
+    <h1>noet</h1>
   </div>
   <form id=f autocomplete=off>
-    <input id=q placeholder="искать в зоне или открыть имя (manifest.nt)" autofocus>
-    <button class=go type=submit>→</button>
+    <input id=q placeholder="искать в зоне" autofocus>
+    <button class=go type=submit aria-label="Найти"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg></button>
   </form>
   <div class=quick>
-    <a href="http://relay.nt/">Зала</a>
+    <a href="http://relay.nt/">Реле</a>
     <a href="http://manifest.nt/">Манифест</a>
     <a href="http://practices.nt/">Практики</a>
   </div>

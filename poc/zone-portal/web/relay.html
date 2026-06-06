@@ -1,6 +1,6 @@
 <!doctype html><html lang=ru><head>
 <meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>Зала · noet</title>
+<title>Реле · noet</title>
 <link rel=icon href="/logo.svg"><link rel=stylesheet href="/app.css">
 <style>
   html,body{height:100%}
@@ -35,7 +35,7 @@
 <div class=app>
   <header>
     <span class=brand><img src="/logo.svg" alt=""></span>
-    <div><h1>Зала</h1><div class=sub>общая комната зоны .nt</div></div>
+    <h1>Реле</h1>
     <div class=right><span class=dot id=dot title="связь"></span><button class=chip id=chip>Войти</button></div>
   </header>
   <div id=log><div class=empty id=empty>пока тихо. Будь первым.</div></div>
@@ -115,7 +115,7 @@ async function send(text){
 function renderFoot(){
   const f=$('#foot');
   if(me&&me.loggedIn){
-    f.innerHTML=`<form class=composer id=cf><input id=ci placeholder="написать в залу…" maxlength=2000 autocomplete=off><button id=cb type=submit>Отправить</button></form>`;
+    f.innerHTML=`<form class=composer id=cf><input id=ci placeholder="написать в реле…" maxlength=2000 autocomplete=off><button id=cb type=submit>Отправить</button></form>`;
     $('#cf').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('#ci').value; $('#ci').value=''; $('#cb').disabled=true; try{await send(v);}catch(err){ $('#ci').value=v; alert(err.message);} $('#cb').disabled=false; $('#ci').focus(); });
   }else{
     f.innerHTML=`<div class=gate><span>Читать может каждый. Чтобы писать, войди.</span><button id=login>Войти</button></div>`;

@@ -51,11 +51,11 @@
     const tryOne = (i) => new Promise((resolve, reject) => {
       let ws; try { ws = new WebSocket(urls[i]); } catch (e) { return reject(e); }
       let opened = false;
-      const to = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('таймаут зала')); }, 6000);
+      const to = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('таймаут реле')); }, 6000);
       ws.onopen = () => { opened = true; ws.send(JSON.stringify(['EVENT', ev])); };
       ws.onmessage = (m) => { let a; try { a = JSON.parse(m.data); } catch { return; } if (a[0] === 'OK' && a[1] === ev.id) { clearTimeout(to); try { ws.close(); } catch {} a[2] ? resolve() : reject(new Error(a[3] || 'отклонено')); } };
-      ws.onerror = () => { clearTimeout(to); reject(Object.assign(new Error('нет связи с залой'), { reconnectable: !opened })); };
-      ws.onclose = () => { if (!opened) { clearTimeout(to); reject(Object.assign(new Error('нет связи с залой'), { reconnectable: true })); } };
+      ws.onerror = () => { clearTimeout(to); reject(Object.assign(new Error('нет связи с реле'), { reconnectable: !opened })); };
+      ws.onclose = () => { if (!opened) { clearTimeout(to); reject(Object.assign(new Error('нет связи с реле'), { reconnectable: true })); } };
     });
     return tryOne(0).catch((e) => e && e.reconnectable ? tryOne(1) : Promise.reject(e));
   }
@@ -177,8 +177,8 @@
   }
 
   const go = (host) => { location.href = 'http://' + host + '/'; };
-  const nav = `<div class=nav><a href="http://search.nt/">Поиск</a><a href="http://relay.nt/">Зала</a></div>`;
-  const foot = `<div class=ft><img src="${LOGO_URI}"> noet · единица мысли</div>`;
+  const nav = `<div class=nav><a href="http://search.nt/">Поиск</a><a href="http://relay.nt/">Реле</a></div>`;
+  const foot = `<div class=ft><img src="${LOGO_URI}"> noet</div>`;
 
   function renderPanel() {
     const m = state.me || {};
