@@ -3,70 +3,72 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Манифест · Самоуправляемая Цифровая Зона</title>
-<meta name="description" content="Цензуроустойчивое самоуправляемое сообщество с хребтом: IPFS, Nostr, право форка, метакогниция.">
+<title>Манифест · noet</title>
+<meta name="description" content="noet: цензуроустойчивое самоуправляемое сообщество, которому добавили хребет.">
+<link rel="icon" href="/logo.svg">
 <style>
-  :root{--bg:#0f1115;--card:#171a21;--bd:#262b36;--fg:#e7e9ee;--mut:#9aa3b2;--acc:#7c5cff}
+  :root{--bg:#0a0a0c;--card:#15151c;--bd:#23232c;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff}
   *{box-sizing:border-box}
   body{font:16px/1.7 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);margin:0}
-  main{max-width:46rem;margin:0 auto;padding:3rem 1.2rem 5rem}
-  h1{font-size:2rem;line-height:1.2;margin:0 0 .2em}
-  .sub{color:var(--mut);font-size:1.05rem;margin-bottom:1rem}
+  main{max-width:44rem;margin:0 auto;padding:3.4rem 1.3rem 6rem}
+  .brand{display:flex;align-items:center;gap:.6rem;margin-bottom:1.8rem}
+  .brand img{width:34px;height:34px}.brand b{font-size:1.05rem;letter-spacing:.2px}
+  h1{font-size:2.1rem;line-height:1.15;margin:0 0 .2em}
+  .sub{color:var(--mut);font-size:1.05rem;margin-bottom:1.4rem}
   nav{font-size:.9rem;margin-bottom:2rem}
-  nav a{color:var(--acc);text-decoration:none;margin-right:1rem}
-  h2{font-size:1.25rem;margin:2.2rem 0 .6rem;border-left:3px solid var(--acc);padding-left:.6rem}
-  a{color:var(--acc)}
-  code{background:var(--card);border:1px solid var(--bd);border-radius:5px;padding:.1em .4em}
-  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:1rem 1.2rem;margin:1rem 0}
+  nav a{color:var(--acc2);text-decoration:none;margin-right:1rem}
+  h2{font-size:1.2rem;margin:2.2rem 0 .5rem;border-left:3px solid var(--acc);padding-left:.6rem}
+  a{color:var(--acc2)}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:1rem 1.2rem;margin:1rem 0}
   .tag{display:inline-block;font-size:.8rem;color:var(--mut);border:1px solid var(--bd);border-radius:999px;padding:.1em .7em;margin:.15em .2em 0 0}
   footer{margin-top:3rem;color:var(--mut);font-size:.85rem;border-top:1px solid var(--bd);padding-top:1rem}
+  code{background:var(--card);border:1px solid var(--bd);border-radius:5px;padding:.1em .4em}
 </style>
 </head>
 <body>
 <main>
+  <div class="brand"><img src="/logo.svg" alt=""><b>noet</b></div>
   <h1>Манифест</h1>
-  <p class="sub">Самоуправляемая Цифровая Зона — место с культурой, которому добавили хребет.</p>
-  <nav>⬡ <a href="http://search.scz/">search.scz</a> <a href="http://practices.scz/">practices.scz</a></nav>
+  <p class="sub">Сообщество, которому добавили хребет.</p>
+  <nav><a href="http://search.nt/">search.nt</a><a href="http://relay.nt/">relay.nt</a><a href="http://practices.nt/">practices.nt</a></nav>
 
-  <p>Это сообщество, которое нельзя погасить ни уходом основателя, ни баном площадки,
-  ни сменой настроения модератора. Технология делает место несокрушимым, желанным его
-  делают люди и культура — и только в этом порядке.</p>
+  <p>Это место нельзя погасить ни уходом основателя, ни баном площадки, ни сменой настроения
+  модератора. Технология делает место несокрушимым. Желанным его делают люди и культура,
+  и только в этом порядке.</p>
 
   <h2>Три страховки</h2>
   <div class="card">
-    <p><b>Основатель уходит</b> — место продолжает жить.<br>
-    <b>Площадку сносят</b> (бан, ICANN, хостинг по жалобе) — место продолжает жить.<br>
-    <b>Основатель становится самодуром</b> — он не может втихую переписать правила под себя.</p>
+    <p><b>Основатель уходит</b>, место продолжает жить.<br>
+    <b>Площадку сносят</b> (бан, жалоба, хостинг), место продолжает жить.<br>
+    <b>Основатель захотел власти</b>, он не может втихую переписать правила под себя.</p>
   </div>
 
   <h2>Чем держится</h2>
-  <p>Контент адресуется по хешу содержимого и живёт в <b>IPFS</b>, пока его кто-то пиннит.
-  Личность — это пара ключей в сети <b>Nostr</b>, без паролей и аккаунта на чужом сервере.
-  Имена раздаёт собственный реестр. Власть над правилами не у одного человека, а у
-  мультисига и процедуры — и всегда названа, а не спрятана.</p>
+  <p>Страницы адресуются по своему содержимому, а не по адресу сервера: пока их кто-то хранит,
+  стереть из одной точки нельзя. Личность это твой ключ, а не аккаунт на чужой машине, его
+  не отобрать и не забанить. Имена раздаёт собственный реестр зоны. Власть над правилами не
+  у одного человека, а у процедуры, и она всегда названа, а не спрятана.</p>
 
   <h2>Право форка</h2>
-  <p>Несогласные уходят со своей копией всего состояния. Это не баг, а главная защита ядра:
-  захват толкования или большинства не фатален, пока форк дёшев и неотъемлем.</p>
+  <p>Несогласные уходят со своей полной копией. Это не слабость, а главная защита ядра: захват
+  большинства или толкования не фатален, пока уйти со своей копией дёшево и запретить это
+  никто не может.</p>
 
   <h2>Культура: способ думать</h2>
-  <p>Норма зоны — <b>метакогниция</b>: разбор собственного мышления. Не «здесь умные, остальные
+  <p>Норма зоны это метакогниция, разбор собственного мышления. Не «здесь умные, остальные
   снаружи», а «здесь принято думать о том, как ты думаешь». Практики собраны на
-  <a href="http://practices.scz/">practices.scz</a>.</p>
+  <a href="http://practices.nt/">practices.nt</a>.</p>
 
   <p>
     <span class="tag">цензуроустойчивость</span>
-    <span class="tag">IPFS</span>
-    <span class="tag">Nostr</span>
-    <span class="tag">метакогниция</span>
-    <span class="tag">спрятанный суверен</span>
     <span class="tag">право форка</span>
-    <span class="tag">мультисиг</span>
+    <span class="tag">метакогниция</span>
+    <span class="tag">названная власть</span>
   </p>
 
   <footer>
-    Эта страница не лежит на сервере. У неё нет IP-адреса — только хеш содержимого.
-    Открыта по имени <code>manifest.scz</code> через резолвер зоны СЦЗ.
+    У этой страницы нет адреса на сервере, только её содержимое. Открыта по имени
+    <code>manifest.nt</code> через зону noet.
   </footer>
 </main>
 </body>

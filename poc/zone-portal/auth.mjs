@@ -98,4 +98,8 @@ export function createInvite(by = 'founder') {
   return code;
 }
 export const handleOf = (pubkey) => (members[pubkey] || {}).handle || null;
+export const allHandles = () => Object.fromEntries(Object.entries(members).map(([pk, m]) => [pk, m.handle]));
 export const stats = () => ({ members: Object.keys(members).length, invitesFree: Object.values(invites).filter((i) => !i.usedBy).length });
+
+// Проверка произвольного Nostr-события (для реле): id == sha256(serialize) и schnorr.verify.
+export const verifyNostr = (ev) => verifyEvent(ev);

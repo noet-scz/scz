@@ -18,3 +18,4 @@ poc/zone-portal/members.json
 poc/zone-portal/invites.json
 poc/zone-portal/.session-secret
 poc/zone-portal/registry.json
+poc/zone-portal/relay-events.json

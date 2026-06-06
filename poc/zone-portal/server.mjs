@@ -1,49 +1,46 @@
-// СЦЗ — Zone Portal: реестр + резолвер + поисковик + ПРОКСИ для зоны .scz
+// noet — Zone Portal: реестр + резолвер + поиск + личность + зала (Nostr-реле) + ПРОКСИ зоны .nt
 //
-// Доступ по имени в самом браузере: PAC отправляет хосты *.scz на этот сервер
-// (в режиме forward-proxy), сервер резолвит имя -> CID -> IPFS и отдаёт страницу.
-// Никакого виджета: http://search.scz/ , http://manifest.scz/ открываются как обычные сайты.
+// Доступ по имени прямо в браузере: PAC отправляет хосты *.nt на этот сервер
+// (forward-proxy), сервер резолвит имя -> CID -> IPFS и отдаёт страницу. На каждую
+// страницу зоны инжектится виджет (/widget.js). Личность хранится в изолированном
+// origin id.nt; зала relay.nt — настоящее Nostr-реле поверх WebSocket (см. ws.mjs).
 //
-// Маршруты (host-независимые):
-//   GET /scz.pac           — PAC: *.scz -> PROXY <этот хост>, остальное DIRECT
-//   GET /api/names         — каталог зоны
-//   GET /api/search?q=     — поиск по индексу
-//   GET /api/resolve/:name — имя -> {cid}
-// По хосту (через прокси):
-//   http://search.scz/     — поисковик (полноценная страница)
-//   http://<имя>.scz/      — сайт зоны из IPFS
-// Прямой доступ по IP (отладка): http://<ip>:8090/ — поиск; /r/<имя> — сайт.
+// Приложение-хосты: search.nt (поиск), relay.nt (зала/чат), id.nt (мост личности).
+// Контент-хосты: <имя>.nt -> сайт из IPFS. Прямой доступ по IP (отладка): / , /relay , /id , /r/<имя>.
 
 import http from 'node:http';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, extname } from 'node:path';
 import * as auth from './auth.mjs';
+import { makeRelay } from './ws.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
+const WEB = join(__dir, 'web');
 const PORT = Number(process.env.PORT || 8090);
 const IPFS_GW = process.env.IPFS_GW || 'http://127.0.0.1:8080';
-const ZONE_TLD = (process.env.ZONE_TLD || 'scz').toLowerCase();
-const SEARCH_NAME = `search.${ZONE_TLD}`;
+const ZONE_TLD = (process.env.ZONE_TLD || 'nt').toLowerCase();
+const SEARCH_NAME = `search.${ZONE_TLD}`, RELAY_NAME = `relay.${ZONE_TLD}`, ID_NAME = `id.${ZONE_TLD}`;
+const APP_HOSTS = new Set([SEARCH_NAME, RELAY_NAME, ID_NAME, `profile.${ZONE_TLD}`]);
 const REG_FILE = process.env.REGISTRY_FILE || join(__dir, 'registry.json');
 const SEED_FILE = join(__dir, 'registry.seed.json');
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const NAME_RE = new RegExp(`^([a-z0-9-]{1,32})\\.${ZONE_TLD}$`, 'i');
-const RESERVED = new Set(['admin', 'root', 'sys', 'core']);
+const RESERVED = new Set(['admin', 'root', 'sys', 'core', 'search', 'relay', 'id', 'profile']);
 
 let reg = existsSync(REG_FILE) ? JSON.parse(readFileSync(REG_FILE, 'utf8'))
   : existsSync(SEED_FILE) ? JSON.parse(readFileSync(SEED_FILE, 'utf8')) : { names: {} };
 const saveReg = () => writeFileSync(REG_FILE, JSON.stringify(reg, null, 2));
 
-// ---- IPFS (через gateway, не RPC) ----
-async function ipfsCat(path) { // path = "<cid>/index.html"
+// ---- IPFS (через gateway) ----
+async function ipfsCat(path) {
   const r = await fetch(`${IPFS_GW}/ipfs/${path}`, { redirect: 'follow' });
   if (!r.ok) throw new Error('gateway ' + r.status);
   return Buffer.from(await r.arrayBuffer());
 }
 
-// ---- индекс ----
-const index = new Map(); // name -> {title, text, cid}
+// ---- индекс/поиск ----
+const index = new Map();
 function stripHtml(html) {
   const t = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const title = t ? t[1].trim() : '';
@@ -96,7 +93,21 @@ const isZone = (h) => h.endsWith('.' + ZONE_TLD);
 function reqUrl(req) { return /^https?:\/\//i.test(req.url) ? new URL(req.url) : new URL(req.url, 'http://x'); }
 const bearer = (req) => { const h = req.headers['authorization'] || ''; return h.startsWith('Bearer ') ? h.slice(7) : (reqUrl(req).searchParams.get('token') || ''); };
 
-// ---- страницы ----
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
+function sendFile(res, file, code = 200) {
+  try {
+    const buf = readFileSync(file);
+    res.writeHead(code, { 'content-type': MIME[extname(file)] || 'application/octet-stream', ...cors });
+    res.end(buf);
+  } catch { sendJson(res, 404, { error: 'нет файла' }); }
+}
+// инжект виджета в страницы зоны (контент из IPFS)
+function withWidget(html) {
+  const tag = '<script src="/widget.js"></script>';
+  if (html.includes('__noetWidget') || html.includes('/widget.js')) return html;
+  return html.includes('</body>') ? html.replace('</body>', tag + '</body>') : html + tag;
+}
+
 function pacFile(proxyHostPort) {
   return `function FindProxyForURL(url, host) {
   if (shExpMatch(host, "*.${ZONE_TLD}")) return "PROXY ${proxyHostPort}";
@@ -104,71 +115,22 @@ function pacFile(proxyHostPort) {
 }
 `;
 }
-
-function searchPage() {
-  return `<!doctype html><html lang=ru><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1"><title>search.${ZONE_TLD} · поиск по зоне</title>
-<style>
-:root{--bg:#0f1115;--card:#171a21;--bd:#262b36;--fg:#e7e9ee;--mut:#9aa3b2;--acc:#7c5cff}
-*{box-sizing:border-box}body{font:16px/1.6 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0}
-.wrap{max-width:46rem;margin:0 auto;padding:4rem 1.2rem}
-h1{font-size:1.9rem;margin:0 0 .1em}.mut{color:var(--mut)}
-.bar{display:flex;gap:.5rem;margin:1.6rem 0 .4rem}
-input{flex:1;background:var(--card);border:1px solid var(--bd);border-radius:10px;color:var(--fg);padding:.8rem 1rem;font-size:1rem}
-button{background:var(--acc);border:0;border-radius:10px;color:#fff;padding:0 1.2rem;font-size:1rem;cursor:pointer}
-.addr{display:flex;gap:.5rem;margin:.2rem 0 1.5rem}.addr input{font-size:.95rem}
-.item{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:1rem 1.2rem;margin:.7rem 0}
-.item a{color:#b9a8ff;font-size:1.15rem;text-decoration:none}.item a:hover{text-decoration:underline}
-.item .u{color:var(--mut);font-size:.85rem;margin:.15rem 0}.item .s{font-size:.95rem;color:#cdd2db}
-code{background:#0b0d11;border:1px solid var(--bd);border-radius:5px;padding:.1em .4em}
-</style></head><body><div class=wrap>
-<h1>⬡ search.${ZONE_TLD}</h1>
-<div class=mut>Поиск по самоуправляемой цифровой зоне СЦЗ. Сайты живут в IPFS по хешу содержимого; имена <code>*.${ZONE_TLD}</code> резолвит зона, не DNS.</div>
-<div class=bar><input id=q placeholder="искать в зоне…" autofocus><button onclick=run()>Найти</button></div>
-<div class=addr><input id=addr placeholder="открыть по имени: manifest.${ZONE_TLD}"><button onclick=go()>Открыть</button></div>
-<div id=res></div>
-</div><script>
-function go(){var n=document.getElementById('addr').value.trim();if(n)location.href='http://'+n+'/';}
-async function run(){
-  var q=document.getElementById('q').value.trim(),res=document.getElementById('res');
-  if(!q){res.innerHTML='';return}
-  res.innerHTML='<div class=mut>ищу…</div>';
-  var items=await (await fetch('/api/search?q='+encodeURIComponent(q))).json();
-  res.innerHTML=items.length?items.map(function(it){
-    return '<div class=item><a href="http://'+it.name+'/">'+esc(it.title)+'</a>'
-      +'<div class=u>'+esc(it.name)+' · '+esc(it.cid.slice(0,16))+'…</div>'
-      +'<div class=s>'+esc(it.snippet)+'</div></div>';
-  }).join(''):'<div class=mut>ничего не найдено</div>';
-}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-document.getElementById('q').addEventListener('keydown',function(e){if(e.key==='Enter')run()});
-document.getElementById('addr').addEventListener('keydown',function(e){if(e.key==='Enter')go()});
-</script></body></html>`;
-}
-
 const notFoundPage = (name) => `<!doctype html><meta charset=utf-8><title>${esc(name)} — нет в зоне</title>
-<body style="font:16px/1.6 system-ui;background:#0f1115;color:#e7e9ee;max-width:40rem;margin:4rem auto;padding:0 1rem">
-<h1>⬡ ${esc(name)}</h1><p style="color:#9aa3b2">Имя не зарегистрировано в зоне .${ZONE_TLD}.</p>
-<p><a style="color:#7c5cff" href="http://${SEARCH_NAME}/">← на search.${ZONE_TLD}</a></p>`;
+<link rel=icon href="/logo.svg">
+<body style="font:16px/1.6 system-ui;background:#0a0a0c;color:#ececf2;max-width:40rem;margin:5rem auto;padding:0 1.2rem">
+<p><img src="/logo.svg" width=44 style="vertical-align:middle"> </p>
+<h1>${esc(name)}</h1><p style="color:#8b8b98">Имя не зарегистрировано в зоне .${ZONE_TLD}.</p>
+<p><a style="color:#9d8bff" href="http://${SEARCH_NAME}/">← на ${SEARCH_NAME}</a></p>
+<script src="/widget.js"></script>`;
 
-function idPage() {
-  return `<!doctype html><html lang=ru><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1"><title>Личность · зона СЦЗ</title>
-<style>
-:root{--bg:#0f1115;--card:#171a21;--bd:#262b36;--fg:#e7e9ee;--mut:#9aa3b2;--acc:#7c5cff;--ok:#34d399}
-*{box-sizing:border-box}body{font:16px/1.6 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0}
-.wrap{max-width:40rem;margin:0 auto;padding:3rem 1.2rem}h1{font-size:1.6rem;margin:0 0 .3em}h3{margin:1.6rem 0 .5rem}
-.mut{color:var(--mut);font-size:.92rem}.ok{background:#10261f;border:1px solid #1c5c45;border-radius:10px;padding:.8rem 1rem;color:var(--ok)}
-.row{display:flex;gap:.5rem;margin:.5rem 0}input{flex:1;background:var(--card);border:1px solid var(--bd);border-radius:9px;color:var(--fg);padding:.6rem .8rem;font-size:.95rem}
-button{background:var(--acc);border:0;border-radius:9px;color:#fff;padding:.55rem 1rem;font-size:.95rem;cursor:pointer}
-button.ghost{background:transparent;border:1px solid var(--bd);color:var(--fg)}a{color:var(--acc)}
-</style></head><body><div class=wrap>
-<h1>⬡ Личность зоны</h1>
-<div class=mut>Вход по Nostr-ключу. Читать и искать можно без входа — он нужен, чтобы <b>участвовать</b> (занять имя, позже — постить).</div>
-<div id=view style="margin-top:1.2rem"><div class=mut>загрузка…</div></div>
-<p class=mut style="margin-top:2rem">Ключ = доступ: потеряешь ключ — потеряешь личность (§7.2). Паскей-восстановление — следующим шагом.</p>
-</div><script type="module" src="/id.js"></script></body></html>`;
-}
+// ---- статические ассеты (host-независимо) ----
+const STATIC = {
+  '/widget.js': join(WEB, 'widget.js'),
+  '/bridge.js': join(WEB, 'bridge.js'),
+  '/app.css': join(WEB, 'app.css'),
+  '/logo.svg': join(WEB, 'logo.svg'),
+  '/vendor/noble-secp256k1.js': join(__dir, 'vendor', 'noble-secp256k1.js'),
+};
 
 // ---- сервер ----
 const server = http.createServer(async (req, res) => {
@@ -178,32 +140,29 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
 
-  // PAC (host-независимо). PROXY = тот хост:порт, с которого забрали PAC.
-  if (req.method === 'GET' && (path === '/scz.pac' || path === '/proxy.pac')) {
+  // статика
+  if (req.method === 'GET' && STATIC[path]) return sendFile(res, STATIC[path]);
+  if (req.method === 'GET' && (path === `/${ZONE_TLD}.pac` || path === '/proxy.pac' || path === '/scz.pac')) {
     res.writeHead(200, { 'content-type': 'application/x-ns-proxy-autoconfig', ...cors });
     return res.end(pacFile(req.headers.host || `127.0.0.1:${PORT}`));
   }
+  if (path === '/favicon.ico') return sendFile(res, join(WEB, 'logo.svg'));
 
   // API (host-независимо)
   if (req.method === 'GET' && path === '/api/names') {
     const out = {};
-    for (const [n, r] of Object.entries(reg.names)) out[n] = { cid: r.cid, title: (index.get(n) || {}).title || r.title || n };
+    for (const [n, r] of Object.entries(reg.names)) out[n] = { cid: r.cid, title: (index.get(n) || {}).title || r.title || n, owner: r.owner, owner_handle: r.owner_handle || null };
     return sendJson(res, 200, out);
   }
+  if (req.method === 'GET' && path === '/api/members') return sendJson(res, 200, auth.allHandles());
   if (req.method === 'GET' && path === '/api/search') return sendJson(res, 200, search(url.searchParams.get('q')));
   if (req.method === 'GET' && path.startsWith('/api/resolve/')) {
     const name = path.slice('/api/resolve/'.length).toLowerCase();
     const rec = reg.names[name];
     return rec ? sendJson(res, 200, { name, cid: rec.cid }) : sendJson(res, 404, { error: 'not found', name });
   }
-  if (path === '/favicon.ico') { res.writeHead(204, cors); return res.end(); }
 
   // ---- личность (Nostr-ключ) + гейт на участие ----
-  if (req.method === 'GET' && (path === '/vendor/noble-secp256k1.js' || path === '/id.js')) {
-    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', ...cors });
-    return res.end(readFileSync(join(__dir, path === '/id.js' ? 'id.js' : join('vendor', 'noble-secp256k1.js'))));
-  }
-  if (req.method === 'GET' && (path === '/id' || path === '/id/')) return sendHtml(res, 200, idPage());
   if (req.method === 'GET' && path === '/api/auth/challenge') return sendJson(res, 200, { challenge: auth.newChallenge() });
   if (req.method === 'POST' && path === '/api/auth/login') {
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
@@ -232,7 +191,6 @@ const server = http.createServer(async (req, res) => {
     saveReg(); await crawl();
     return sendJson(res, 201, { name, ...reg.names[name] });
   }
-
   if (req.method === 'POST' && path === '/register') {
     if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return sendJson(res, 403, { error: 'регистрация закрыта' });
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
@@ -247,31 +205,39 @@ const server = http.createServer(async (req, res) => {
 
   // ----- доступ ПО ИМЕНИ (через прокси) -----
   if (isZone(host)) {
-    if (host === SEARCH_NAME) return sendHtml(res, 200, searchPage());
+    if (host === SEARCH_NAME) return sendFile(res, join(WEB, 'search.html'));
+    if (host === RELAY_NAME) return sendFile(res, join(WEB, 'relay.html'));
+    if (host === ID_NAME) return sendFile(res, join(WEB, 'bridge.html'));
     const rec = reg.names[host];
     if (!rec) return sendHtml(res, 404, notFoundPage(host));
-    try { return sendHtml(res, 200, (await ipfsCat(`${rec.cid}/index.html`)).toString('utf8')); }
+    try { return sendHtml(res, 200, withWidget((await ipfsCat(`${rec.cid}/index.html`)).toString('utf8'))); }
     catch (e) { return sendHtml(res, 504, `<h1>504</h1><p>IPFS не отдал контент: ${esc(e.message)}</p>`); }
   }
 
   // ----- прямой доступ по IP (отладка) -----
-  if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendHtml(res, 200, searchPage());
+  if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendFile(res, join(WEB, 'search.html'));
+  if (req.method === 'GET' && path === '/relay') return sendFile(res, join(WEB, 'relay.html'));
+  if (req.method === 'GET' && (path === '/id' || path === '/id/')) return sendFile(res, join(WEB, 'bridge.html'));
   if (req.method === 'GET' && path.startsWith('/r/')) {
     const name = path.slice('/r/'.length).toLowerCase();
     const rec = reg.names[name];
     if (!rec) return sendHtml(res, 404, notFoundPage(name));
-    try { return sendHtml(res, 200, (await ipfsCat(`${rec.cid}/index.html`)).toString('utf8')); }
+    try { return sendHtml(res, 200, withWidget((await ipfsCat(`${rec.cid}/index.html`)).toString('utf8'))); }
     catch (e) { return sendHtml(res, 504, `<h1>504</h1><p>${esc(e.message)}</p>`); }
   }
 
   sendJson(res, 404, { error: 'нет маршрута' });
 });
 
+// зала: настоящее Nostr-реле поверх WebSocket
+const relay = makeRelay({ verify: auth.verifyNostr, file: join(__dir, 'relay-events.json') });
+relay.attach(server);
+
 // https-попытки к зоне (CONNECT) аккуратно отклоняем — зона по http
 server.on('connect', (req, socket) => { socket.write('HTTP/1.1 501 Not Implemented\r\n\r\nЗона работает по http\r\n'); socket.end(); });
 
 server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`[portal] :${PORT} → IPFS ${IPFS_GW} · зона .${ZONE_TLD} · имён: ${Object.keys(reg.names).length}`);
+  console.log(`[portal] :${PORT} → IPFS ${IPFS_GW} · зона .${ZONE_TLD} · имён: ${Object.keys(reg.names).length} · реле on`);
   await crawl();
   setInterval(crawl, 5 * 60 * 1000);
 });

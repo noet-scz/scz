@@ -1,0 +1,74 @@
+<!doctype html><html lang=ru><head>
+<meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>noet</title>
+<link rel=icon href="/logo.svg"><link rel=stylesheet href="/app.css">
+<style>
+  .top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:flex-end;padding:1rem 1.2rem;z-index:5}
+  .stage{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    padding:clamp(4rem,18vh,11rem) 1.2rem 4rem;max-width:42rem;margin:0 auto}
+  .mark{display:flex;align-items:center;gap:.7rem;margin-bottom:1.6rem}
+  .mark img{width:54px;height:54px}
+  .mark h1{font-size:2.6rem;margin:0;font-weight:680;letter-spacing:-.5px}
+  .mark .t{color:var(--mut);font-size:.85rem;margin-top:.25rem}
+  form{width:100%;display:flex;gap:.5rem}
+  #q{flex:1;font-size:1.05rem;border-radius:14px;padding:.95rem 1.1rem}
+  #q::placeholder{color:#5b5b66}
+  .go{background:var(--acc);border:0;border-radius:14px;color:#fff;padding:0 1.4rem;font-weight:600}
+  .go:hover{background:#6c4dff}
+  #res{width:100%;margin-top:1.4rem}
+  .item{padding:.85rem .2rem;border-bottom:1px solid #16161d}
+  .item a.title{color:var(--acc2);font-size:1.1rem;font-weight:550}
+  .item .u{color:var(--mut);font-size:.8rem;margin:.1rem 0 .2rem}
+  .item .s{color:#c3c3cd;font-size:.92rem}
+  .empty{color:var(--mut);margin-top:1.4rem}
+  .quick{margin-top:1.1rem;display:flex;gap:.6rem;flex-wrap:wrap}
+  .quick a{font-size:.85rem;color:var(--mut);background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.25rem .8rem}
+  .quick a:hover{border-color:var(--acc);text-decoration:none;color:var(--fg)}
+</style></head><body>
+<div class=top><button class=chip id=chip>Войти</button></div>
+<div class=stage>
+  <div class=mark>
+    <img src="/logo.svg" alt="">
+    <div><h1>noet</h1><div class=t>единица мысли · зона .nt</div></div>
+  </div>
+  <form id=f autocomplete=off>
+    <input id=q placeholder="искать в зоне или открыть имя (manifest.nt)" autofocus>
+    <button class=go type=submit>→</button>
+  </form>
+  <div class=quick>
+    <a href="http://relay.nt/">Зала</a>
+    <a href="http://manifest.nt/">Манифест</a>
+    <a href="http://practices.nt/">Практики</a>
+  </div>
+  <div id=res></div>
+</div>
+<script src="/widget.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const NAME=/^[a-z0-9-]{1,32}\.nt$/i;
+$('#f').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const q=$('#q').value.trim(); if(!q){$('#res').innerHTML='';return;}
+  if(NAME.test(q)){location.href='http://'+q.toLowerCase()+'/';return;}
+  $('#res').innerHTML='<div class=empty>ищу…</div>';
+  let items=[]; try{items=await(await fetch('/api/search?q='+encodeURIComponent(q))).json();}catch{}
+  $('#res').innerHTML = items.length ? items.map(it=>
+    `<div class=item><a class=title href="http://${esc(it.name)}/">${esc(it.title)}</a>
+     <div class=u>${esc(it.name)}</div><div class=s>${esc(it.snippet)}</div></div>`).join('')
+   : '<div class=empty>ничего не найдено по «'+esc(q)+'»</div>';
+});
+// профиль-чип
+async function chip(){
+  let me=null; try{me=await window.Noet.whoami();}catch{}
+  const c=$('#chip');
+  if(me&&me.loggedIn){
+    const name=(me.profile&&me.profile.name)||('@'+me.handle);
+    c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,name,me.profile)}">`+esc(name);
+    c.onclick=()=>window.Noet.openPanel('menu');
+  }else{
+    c.textContent='Войти'; c.onclick=()=>window.Noet.openLogin();
+  }
+}
+window.Noet.ready().then(chip); window.Noet.onChange(chip);
+</script></body></html>

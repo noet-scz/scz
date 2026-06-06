@@ -1,0 +1,136 @@
+<!doctype html><html lang=ru><head>
+<meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Зала · noet</title>
+<link rel=icon href="/logo.svg"><link rel=stylesheet href="/app.css">
+<style>
+  html,body{height:100%}
+  .app{display:flex;flex-direction:column;height:100%;max-width:48rem;margin:0 auto}
+  header{display:flex;align-items:center;gap:.7rem;padding:.9rem 1.1rem;border-bottom:1px solid var(--bd)}
+  header .brand img{width:30px;height:30px}
+  header h1{font-size:1.05rem;margin:0;font-weight:620}
+  header .sub{color:var(--mut);font-size:.78rem}
+  header .right{margin-left:auto;display:flex;align-items:center;gap:.6rem}
+  .dot{width:8px;height:8px;border-radius:50%;background:#444;flex:0 0 8px}
+  .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  #log{flex:1;overflow-y:auto;padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.15rem}
+  .m{display:flex;gap:.65rem;padding:.35rem 0}
+  .m .av{width:38px;height:38px;border-radius:50%;flex:0 0 38px;object-fit:cover;margin-top:.1rem}
+  .m .b{min-width:0}
+  .m .h{display:flex;align-items:baseline;gap:.5rem}
+  .m .nm{font-weight:600;font-size:.95rem}
+  .m .me .nm{color:var(--acc2)}
+  .m .tm{color:var(--mut);font-size:.72rem}
+  .m .tx{color:#dcdce4;white-space:pre-wrap;word-wrap:break-word;font-size:.97rem}
+  .m .tx a{color:var(--acc2)}
+  .day{align-self:center;color:var(--mut);font-size:.74rem;background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.1rem .7rem;margin:.6rem 0}
+  footer{padding:.7rem 1.1rem;border-top:1px solid var(--bd)}
+  .composer{display:flex;gap:.5rem}
+  .composer input{flex:1;border-radius:12px}
+  .composer button{background:var(--acc);border:0;border-radius:12px;color:#fff;padding:0 1.1rem;font-weight:600}
+  .composer button:disabled{opacity:.5;cursor:default}
+  .gate{display:flex;align-items:center;justify-content:space-between;gap:.6rem;color:var(--mut);font-size:.9rem}
+  .gate button{background:var(--acc);border:0;border-radius:10px;color:#fff;padding:.55rem 1rem;font-weight:600}
+  .empty{color:var(--mut);text-align:center;margin:auto}
+</style></head><body>
+<div class=app>
+  <header>
+    <span class=brand><img src="/logo.svg" alt=""></span>
+    <div><h1>Зала</h1><div class=sub>общая комната зоны .nt</div></div>
+    <div class=right><span class=dot id=dot title="связь"></span><button class=chip id=chip>Войти</button></div>
+  </header>
+  <div id=log><div class=empty id=empty>пока тихо. Будь первым.</div></div>
+  <footer id=foot></footer>
+</div>
+<script src="/widget.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const linkify=s=>esc(s).replace(/(https?:\/\/[^\s<]+|[a-z0-9-]{1,32}\.nt(?:\/[^\s<]*)?)/gi,m=>{
+  const href=/^https?:/i.test(m)?m:'http://'+m; return `<a href="${href}">${m}</a>`;});
+
+let me=null, ws=null, connected=false;
+const events=new Map();        // id -> kind1 event
+const profiles=new Map();      // pubkey -> {name,picture,about} (последний kind0)
+const pTime=new Map();         // pubkey -> created_at последнего kind0
+let handles={};                // pubkey -> handle (из реестра участников)
+
+async function loadHandles(){ try{ handles=await(await fetch('/api/members')).json(); }catch{} }
+
+function nameOf(pk){ const p=profiles.get(pk); if(p&&p.name) return p.name; if(handles[pk]) return '@'+handles[pk]; return pk.slice(0,8)+'…'; }
+function profOf(pk){ const p=profiles.get(pk)||{}; return {name:p.name||(handles[pk]?'@'+handles[pk]:''),picture:p.picture,about:p.about}; }
+const two=n=>String(n).padStart(2,'0');
+function fmtTime(ts){ const d=new Date(ts*1000); return two(d.getHours())+':'+two(d.getMinutes()); }
+function dayKey(ts){ const d=new Date(ts*1000); return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'}); }
+
+function render(){
+  const log=$('#log');
+  const list=[...events.values()].sort((a,b)=>a.created_at-b.created_at).slice(-400);
+  if(!list.length){ log.innerHTML='<div class=empty id=empty>пока тихо. Будь первым.</div>'; return; }
+  const nearBottom = log.scrollHeight-log.scrollTop-log.clientHeight < 120;
+  let html='', lastDay=null;
+  for(const ev of list){
+    const dk=dayKey(ev.created_at);
+    if(dk!==lastDay){ html+=`<div class=day>${esc(dk)}</div>`; lastDay=dk; }
+    const mine = me&&me.pubkey===ev.pubkey;
+    html+=`<div class="m${mine?' me':''}">
+      <img class=av src="${window.Noet.avatar(ev.pubkey,nameOf(ev.pubkey),profOf(ev.pubkey))}">
+      <div class=b><div class=h><span class=nm>${esc(nameOf(ev.pubkey))}</span><span class=tm title="${esc(new Date(ev.created_at*1000).toLocaleString('ru-RU'))}">${fmtTime(ev.created_at)}</span></div>
+      <div class=tx>${linkify(ev.content)}</div></div></div>`;
+  }
+  log.innerHTML=html;
+  if(nearBottom) log.scrollTop=log.scrollHeight;
+}
+
+function ingest(ev){
+  if(ev.kind===1){ if(!events.has(ev.id)){ events.set(ev.id,ev); return true; } }
+  else if(ev.kind===0){ const t=pTime.get(ev.pubkey)||0; if(ev.created_at>=t){ pTime.set(ev.pubkey,ev.created_at); try{profiles.set(ev.pubkey,JSON.parse(ev.content||'{}'));}catch{} return true; } }
+  return false;
+}
+
+function connect(){
+  try{ ws=new WebSocket('ws://'+location.host+'/relay'); }catch(e){ setTimeout(connect,2000); return; }
+  ws.onopen=()=>{ connected=true; $('#dot').classList.add('on');
+    ws.send(JSON.stringify(['REQ','m',{kinds:[1],limit:300}]));
+    ws.send(JSON.stringify(['REQ','p',{kinds:[0],limit:1000}])); };
+  ws.onmessage=m=>{ let a; try{a=JSON.parse(m.data);}catch{return;}
+    if(a[0]==='EVENT'){ if(ingest(a[2])) render(); }
+    else if(a[0]==='EOSE'){ render(); }
+  };
+  ws.onclose=()=>{ connected=false; $('#dot').classList.remove('on'); ws=null; setTimeout(connect,1500); };
+  ws.onerror=()=>{ try{ws.close();}catch{} };
+}
+
+async function send(text){
+  text=text.trim(); if(!text) return;
+  const ev=await window.Noet.signEvent({kind:1,created_at:Math.floor(Date.now()/1000),tags:[],content:text});
+  if(ws&&connected) ws.send(JSON.stringify(['EVENT',ev]));
+  else { ingest(ev); render(); }
+}
+
+function renderFoot(){
+  const f=$('#foot');
+  if(me&&me.loggedIn){
+    f.innerHTML=`<form class=composer id=cf><input id=ci placeholder="написать в залу…" maxlength=2000 autocomplete=off><button id=cb type=submit>Отправить</button></form>`;
+    $('#cf').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('#ci').value; $('#ci').value=''; $('#cb').disabled=true; try{await send(v);}catch(err){ $('#ci').value=v; alert(err.message);} $('#cb').disabled=false; $('#ci').focus(); });
+  }else{
+    f.innerHTML=`<div class=gate><span>Читать может каждый. Чтобы писать, войди.</span><button id=login>Войти</button></div>`;
+    $('#login').onclick=()=>window.Noet.openLogin();
+  }
+}
+function renderChip(){
+  const c=$('#chip');
+  if(me&&me.loggedIn){ const n=(me.profile&&me.profile.name)||('@'+me.handle); c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,n,me.profile)}">`+esc(n); c.onclick=()=>window.Noet.openPanel('menu'); }
+  else{ c.textContent='Войти'; c.onclick=()=>window.Noet.openLogin(); }
+}
+async function syncMe(){ try{me=await window.Noet.whoami();}catch{me=null;} renderChip(); renderFoot(); render(); }
+
+// чат живёт независимо от личности: подключаемся и рисуем сразу,
+// личность (чип/композер) подтянется, когда мост ответит.
+(async()=>{
+  loadHandles().then(render);
+  connect();
+  syncMe();
+  window.Noet.onChange(()=>{ loadHandles().then(render); syncMe(); });
+  setInterval(loadHandles,60000);
+})();
+</script></body></html>

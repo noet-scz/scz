@@ -1,0 +1,23 @@
+:root{
+  --bg:#0a0a0c; --panel:#101016; --panel2:#15151c; --bd:#23232c; --bd2:#2c2c38;
+  --fg:#ececf2; --mut:#8b8b98; --acc:#7c5cff; --acc2:#9d8bff; --ok:#5fd0a8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--fg);
+  font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--acc2);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:rgba(124,92,255,.35)}
+.brand{display:inline-flex;align-items:center;gap:.5rem;font-weight:650;letter-spacing:.2px}
+.brand img{width:1.5em;height:1.5em;display:block}
+input,button,textarea{font:inherit}
+input,textarea{background:var(--panel2);border:1px solid var(--bd);border-radius:12px;color:var(--fg);padding:.7rem .9rem;outline:none}
+input:focus,textarea:focus{border-color:var(--acc)}
+button{cursor:pointer}
+.chip{display:inline-flex;align-items:center;gap:.5rem;background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.3rem .3rem .3rem .8rem;color:var(--fg);font-size:.9rem;cursor:pointer}
+.chip:hover{border-color:var(--acc)}
+.chip .av{width:26px;height:26px;border-radius:50%;object-fit:cover}
