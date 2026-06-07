@@ -99,7 +99,7 @@ const OPS = {
 };
 
 function publishToRelay(ev) {
-  const urls = ['ws://relay.nt/relay', 'ws://127.0.0.1:8090/relay'];
+  const urls = ['ws://relay.noet.nt/relay', 'ws://127.0.0.1:8090/relay'];
   const one = (i) => new Promise((res, rej) => {
     let ws; try { ws = new WebSocket(urls[i]); } catch (e) { return rej(e); }
     let opened = false; const to = setTimeout(() => { try { ws.close(); } catch {} rej(Object.assign(new Error('relay'), { again: !opened })); }, 5000);
@@ -112,7 +112,7 @@ function publishToRelay(ev) {
 }
 
 /* ---------- мост (iframe) ---------- */
-const TRUSTED = ['search.nt', 'relay.nt', 'profile.nt', 'id.nt'];
+const TRUSTED = ['noet.nt', 'relay.noet.nt', 'profile.noet.nt', 'id.noet.nt'];
 const trusted = (o) => { try { return TRUSTED.includes(new URL(o).hostname); } catch { return false; } };
 const OPEN = new Set(['whoami']);
 window.addEventListener('message', async (e) => {
@@ -145,7 +145,7 @@ function renderApp() {
   const download = (name, text) => { const a = document.createElement('a'); a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text); a.download = name; a.click(); };
   const backupText = (nsec, pub) => 'noet — приватный ключ (никому не показывай):\n' + nsec + '\n\nпубличный ключ:\n' + pub + '\n\nПотеряешь ключ — потеряешь личность.';
 
-  const header = () => `<div class="hd"><a class="brand" href="http://search.nt/"><img src="/logo.svg" alt=""><b>noet</b></a>
+  const header = () => `<div class="hd"><a class="brand" href="http://noet.nt/"><img src="/logo.svg" alt=""><b>noet</b></a>
     <div class="lang"><button data-l="ru" class="${window.noetLang() === 'ru' ? 'on' : ''}">RU</button><button data-l="en" class="${window.noetLang() === 'en' ? 'on' : ''}">EN</button></div></div>`;
   const wrapErr = (fn) => async (...a) => { try { return await fn(...a); } catch (e) { console.error(e); throw e; } };
 
@@ -189,7 +189,7 @@ function renderApp() {
         <div class="msg err" id="msg"></div>
       </div>`;
     } else if (state.view === 'profile') {
-      const p = me.profile || {}, dname = (p.name || ('@' + me.handle));
+      const p = me.profile || {}, dname = (p.name || me.handle);
       body = `<div class="card profile">
         <div class="phd"><img class="bigav" src="${avatar(me.pubkey, dname, p)}"><div><div class="dn">${esc(dname)}</div><div class="mut">@${esc(me.handle)}</div></div></div>
         <label>${t('display_name')}</label><input id="p_name" value="${esc(p.name)}" placeholder="${t('dname_ph')}">

@@ -1,6 +1,16 @@
 {
   "names": {
-    "manifest.nt": { "cid": "bafybeiczmq27m6voyfmljuw2m7bhpjuhyvmn5ntrqwv5rtgkuct247fzsu", "owner": "founder", "ts": 0, "title": "Манифест · noet" },
-    "practices.nt": { "cid": "bafybeieasckeqi6svmnly5zkxxl5iz3ltf6lswus5nau4zhy4bh3pkjbea", "owner": "founder", "ts": 0, "title": "Практики · noet" }
+    "manifest.noet.nt": {
+      "cid": "bafybeiabygytqhkwnzlppm4huzrfkadb3l6fix2xy2geadif3riewsfrra",
+      "owner": "founder",
+      "ts": 0,
+      "title": "Манифест · noet"
+    },
+    "practices.noet.nt": {
+      "cid": "bafybeigmctsfpq6caxr3ac7qkggiyx6oi6vsyoqnwadoj6o7owteq55x7e",
+      "owner": "founder",
+      "ts": 0,
+      "title": "Практики · noet"
+    }
   }
 }

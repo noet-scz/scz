@@ -22,14 +22,13 @@
   .m .tx{color:#dcdce4;white-space:pre-wrap;word-wrap:break-word;font-size:.97rem}
   .m .tx a{color:var(--acc2)}
   .day{align-self:center;color:var(--mut);font-size:.74rem;background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.1rem .7rem;margin:.6rem 0}
+  .gatebox{margin:auto;text-align:center;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:1rem}
+  .gatebox button{background:var(--acc);border:0;border-radius:12px;color:#fff;padding:.7rem 1.4rem;font-weight:600;font-size:1rem;cursor:pointer}
   footer{padding:.7rem 1.1rem;border-top:1px solid var(--bd)}
   .composer{display:flex;gap:.5rem}
   .composer input{flex:1;border-radius:12px}
   .composer button{background:var(--acc);border:0;border-radius:12px;color:#fff;padding:0 1.1rem;font-weight:600}
   .composer button:disabled{opacity:.5;cursor:default}
-  .gate{display:flex;align-items:center;justify-content:space-between;gap:.6rem;color:var(--mut);font-size:.9rem}
-  .gate button{background:var(--acc);border:0;border-radius:10px;color:#fff;padding:.55rem 1rem;font-weight:600}
-  .empty{color:var(--mut);text-align:center;margin:auto}
 </style></head><body>
 <div class=app>
   <header>
@@ -37,7 +36,7 @@
     <h1 id=title></h1>
     <div class=right><span class=dot id=dot></span><button class=chip id=chip></button></div>
   </header>
-  <div id=log><div class=empty id=empty></div></div>
+  <div id=log></div>
   <footer id=foot></footer>
 </div>
 <script src="/i18n.js"></script>
@@ -45,15 +44,17 @@
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const linkify=s=>esc(s).replace(/(https?:\/\/[^\s<]+|[a-z0-9-]{1,32}\.nt(?:\/[^\s<]*)?)/gi,m=>{
+const linkify=s=>esc(s).replace(/(https?:\/\/[^\s<]+|[a-z0-9-]{1,32}\.noet\.nt(?:\/[^\s<]*)?)/gi,m=>{
   const href=/^https?:/i.test(m)?m:'http://'+m; return `<a href="${href}">${m}</a>`;});
+const ID='http://id.noet.nt/';
 
 let me=null, ws=null, connected=false;
 const events=new Map(), profiles=new Map(), pTime=new Map(); let handles={};
+const loggedIn=()=>!!(me&&me.loggedIn);
 
 async function loadHandles(){ try{ handles=await(await fetch('/api/members')).json(); }catch{} }
-function nameOf(pk){ const p=profiles.get(pk); if(p&&p.name) return p.name; if(handles[pk]) return '@'+handles[pk]; return pk.slice(0,8)+'…'; }
-function profOf(pk){ const p=profiles.get(pk)||{}; return {name:p.name||(handles[pk]?'@'+handles[pk]:''),picture:p.picture,about:p.about}; }
+function nameOf(pk){ const p=profiles.get(pk); if(p&&p.name) return p.name; if(handles[pk]) return handles[pk]; return pk.slice(0,8)+'…'; }
+function profOf(pk){ const p=profiles.get(pk)||{}; return {name:p.name||handles[pk]||'',picture:p.picture,about:p.about}; }
 const two=n=>String(n).padStart(2,'0');
 const fmtTime=ts=>{const d=new Date(ts*1000);return two(d.getHours())+':'+two(d.getMinutes());};
 function dayLabel(ts){
@@ -65,8 +66,12 @@ function dayLabel(ts){
 }
 function render(){
   const log=$('#log');
+  if(!loggedIn()){
+    log.innerHTML=`<div class=gatebox><div>${esc(t('gate_read'))}</div><button id=glogin>${esc(t('login'))}</button></div>`;
+    const b=$('#glogin'); if(b) b.onclick=()=>location.href=ID; return;
+  }
   const list=[...events.values()].sort((a,b)=>a.created_at-b.created_at).slice(-400);
-  if(!list.length){ log.innerHTML='<div class=empty>'+t('empty_relay')+'</div>'; return; }
+  if(!list.length){ log.innerHTML=''; return; }
   const nearBottom=log.scrollHeight-log.scrollTop-log.clientHeight<120;
   let html='', lastDay=null;
   for(const ev of list){
@@ -86,6 +91,7 @@ function ingest(ev){
 }
 const WS_URLS=['ws://'+location.host+'/relay','ws://127.0.0.1:8090/relay']; let wsIdx=0;
 function connect(){
+  if(!loggedIn()||ws) return;
   const url=WS_URLS[wsIdx%WS_URLS.length];
   try{ ws=new WebSocket(url); }catch(e){ wsIdx++; setTimeout(connect,1200); return; }
   let opened=false;
@@ -93,9 +99,10 @@ function connect(){
     ws.send(JSON.stringify(['REQ','m',{kinds:[1],limit:300}]));
     ws.send(JSON.stringify(['REQ','p',{kinds:[0],limit:1000}])); };
   ws.onmessage=m=>{ let a; try{a=JSON.parse(m.data);}catch{return;} if(a[0]==='EVENT'){ if(ingest(a[2])) render(); } else if(a[0]==='EOSE'){ render(); } };
-  ws.onclose=()=>{ connected=false; $('#dot').classList.remove('on'); ws=null; if(!opened) wsIdx++; setTimeout(connect,1200); };
+  ws.onclose=()=>{ connected=false; $('#dot').classList.remove('on'); ws=null; if(!opened) wsIdx++; if(loggedIn()) setTimeout(connect,1200); };
   ws.onerror=()=>{ try{ws.close();}catch{} };
 }
+function disconnect(){ if(ws){ try{ws.close();}catch{} ws=null; } connected=false; $('#dot').classList.remove('on'); }
 async function send(text){
   text=text.trim(); if(!text) return;
   const ev=await window.Noet.signEvent({kind:1,created_at:Math.floor(Date.now()/1000),tags:[],content:text});
@@ -103,29 +110,29 @@ async function send(text){
 }
 function renderFoot(){
   const f=$('#foot');
-  if(me&&me.loggedIn){
+  if(loggedIn()){
     f.innerHTML=`<form class=composer id=cf><input id=ci placeholder="${esc(t('compose_ph'))}" maxlength=2000 autocomplete=off><button id=cb type=submit>${esc(t('send'))}</button></form>`;
     $('#cf').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('#ci').value; $('#ci').value=''; $('#cb').disabled=true; try{await send(v);}catch(err){ $('#ci').value=v; alert(t('err_generic')); } $('#cb').disabled=false; $('#ci').focus(); });
-  }else{
-    f.innerHTML=`<div class=gate><span>${esc(t('gate'))}</span><button id=login>${esc(t('login'))}</button></div>`;
-    $('#login').onclick=()=>location.href='http://id.nt/';
-  }
+  }else f.innerHTML='';
 }
 function renderChip(){
   const c=$('#chip');
-  if(me&&me.loggedIn){ const n=(me.profile&&me.profile.name)||('@'+me.handle); c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,n,me.profile)}">`+esc(n); }
+  if(loggedIn()){ const n=(me.profile&&me.profile.name)||me.handle; c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,n,me.profile)}">`+esc(n); }
   else c.textContent=t('login');
-  c.onclick=()=>location.href='http://id.nt/';
+  c.onclick=()=>location.href=ID;
 }
-function applyLang(){ $('#title').textContent=t('relay_title'); $('#empty').textContent=t('empty_relay'); renderChip(); renderFoot(); render(); }
-async function syncMe(){ try{me=await window.Noet.whoami();}catch{me=null;} renderChip(); renderFoot(); render(); }
+function applyLang(){ $('#title').textContent=t('relay_title'); renderChip(); renderFoot(); render(); }
+async function syncMe(){
+  try{me=await window.Noet.whoami();}catch{me=null;}
+  renderChip(); renderFoot(); render();
+  if(loggedIn()) connect(); else disconnect();
+}
 window.addEventListener('noetlang',applyLang);
 (async()=>{
   applyLang();
-  loadHandles().then(render);
-  connect();
-  syncMe();
-  window.Noet.onChange(()=>{ loadHandles().then(render); syncMe(); });
+  loadHandles();
+  await syncMe();
+  window.Noet.onChange(()=>{ loadHandles().then(()=>{ if(loggedIn()) render(); }); syncMe(); });
   setInterval(loadHandles,60000);
 })();
 </script></body></html>

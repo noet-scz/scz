@@ -9,7 +9,7 @@
       // relay
       relay_title: 'Реле', relay_sub: 'общее пространство зоны',
       empty_relay: 'пока тихо. Будь первым.', compose_ph: 'написать в реле…', send: 'Отправить',
-      gate: 'Читать может каждый. Чтобы писать, нужно войти.', today: 'сегодня', yesterday: 'вчера',
+      gate: 'Чтобы писать, нужно войти.', gate_read: 'Войди, чтобы видеть реле.', today: 'сегодня', yesterday: 'вчера',
       // account
       acc_welcome: 'Личность noet', acc_guest_hint: 'Ты не вошёл. Личность это твой ключ, без почты и паролей.',
       create_identity: 'Создать личность', have_key: 'У меня уже есть ключ', import_key: 'Импортировать ключ',
@@ -39,7 +39,7 @@
       search_ph: 'search the zone', searching: 'searching…', nothing: 'nothing found',
       relay_title: 'Relay', relay_sub: 'shared space of the zone',
       empty_relay: 'quiet so far. Be the first.', compose_ph: 'write to the relay…', send: 'Send',
-      gate: 'Anyone can read. Sign in to post.', today: 'today', yesterday: 'yesterday',
+      gate: 'Sign in to post.', gate_read: 'Sign in to see the relay.', today: 'today', yesterday: 'yesterday',
       acc_welcome: 'noet identity', acc_guest_hint: 'You are not signed in. Your identity is a key, no email or passwords.',
       create_identity: 'Create identity', have_key: 'I already have a key', import_key: 'Import key',
       import_ph: 'private key (64 hex)', key_ready: 'Key is ready and stored in this browser.',

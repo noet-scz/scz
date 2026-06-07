@@ -19,14 +19,19 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dir, 'web');
 const PORT = Number(process.env.PORT || 8090);
 const IPFS_GW = process.env.IPFS_GW || 'http://127.0.0.1:8080';
-const ZONE_TLD = (process.env.ZONE_TLD || 'nt').toLowerCase();
-const SEARCH_NAME = `search.${ZONE_TLD}`, RELAY_NAME = `relay.${ZONE_TLD}`, ID_NAME = `id.${ZONE_TLD}`;
-const APP_HOSTS = new Set([SEARCH_NAME, RELAY_NAME, ID_NAME, `profile.${ZONE_TLD}`]);
+const ZONE_TLD = (process.env.ZONE_TLD || 'nt').toLowerCase();      // для PAC: *.nt -> PROXY
+// База зоны — один регистрируемый домен, чтобы все страницы были SAME-SITE и делили
+// хранилище личности (иначе браузер изолирует localStorage между разными доменами .nt).
+const BASE = (process.env.ZONE_BASE || 'noet.nt').toLowerCase();
+const SEARCH_NAME = BASE;                 // noet.nt — поиск/дом
+const RELAY_NAME = `relay.${BASE}`;        // relay.noet.nt
+const ID_NAME = `id.${BASE}`;              // id.noet.nt — личность
+const APP_HOSTS = new Set([SEARCH_NAME, RELAY_NAME, ID_NAME, `profile.${BASE}`]);
 const REG_FILE = process.env.REGISTRY_FILE || join(__dir, 'registry.json');
 const SEED_FILE = join(__dir, 'registry.seed.json');
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
-const NAME_RE = new RegExp(`^([a-z0-9-]{1,32})\\.${ZONE_TLD}$`, 'i');
-const RESERVED = new Set(['admin', 'root', 'sys', 'core', 'search', 'relay', 'id', 'profile']);
+const NAME_RE = new RegExp(`^([a-z0-9-]{1,32})\\.${BASE.replace(/\./g, '\\.')}$`, 'i');
+const RESERVED = new Set(['admin', 'root', 'sys', 'core', 'search', 'relay', 'id', 'profile', 'www', 'api']);
 
 let reg = existsSync(REG_FILE) ? JSON.parse(readFileSync(REG_FILE, 'utf8'))
   : existsSync(SEED_FILE) ? JSON.parse(readFileSync(SEED_FILE, 'utf8')) : { names: {} };
@@ -89,7 +94,7 @@ const sendHtml = (res, c, h) => { res.writeHead(c, { 'content-type': 'text/html;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const readBody = (req) => new Promise((r) => { let d = ''; req.on('data', (c) => (d += c)); req.on('end', () => r(d)); });
 const hostOf = (req) => (req.headers.host || '').toLowerCase().split(':')[0];
-const isZone = (h) => h.endsWith('.' + ZONE_TLD);
+const isZone = (h) => h === BASE || h.endsWith('.' + BASE);
 function reqUrl(req) { return /^https?:\/\//i.test(req.url) ? new URL(req.url) : new URL(req.url, 'http://x'); }
 const bearer = (req) => { const h = req.headers['authorization'] || ''; return h.startsWith('Bearer ') ? h.slice(7) : (reqUrl(req).searchParams.get('token') || ''); };
 
@@ -119,7 +124,7 @@ const notFoundPage = (name) => `<!doctype html><meta charset=utf-8><title>${esc(
 <link rel=icon href="/logo.svg">
 <body style="font:16px/1.6 system-ui;background:#0a0a0c;color:#ececf2;max-width:40rem;margin:5rem auto;padding:0 1.2rem">
 <p><img src="/logo.svg" width=44 style="vertical-align:middle"> </p>
-<h1>${esc(name)}</h1><p style="color:#8b8b98">Имя не зарегистрировано в зоне .${ZONE_TLD}.</p>
+<h1>${esc(name)}</h1><p style="color:#8b8b98">Имя не зарегистрировано в зоне ${BASE}.</p>
 <p><a style="color:#9d8bff" href="http://${SEARCH_NAME}/">← на ${SEARCH_NAME}</a></p>
 <script src="/widget.js"></script>`;
 
@@ -184,7 +189,7 @@ const server = http.createServer(async (req, res) => {
     if (!pk) return sendJson(res, 401, { error: 'нужен вход, чтобы занять имя', code: 'need_login' });
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json', code: 'generic' }); }
     const name = String(d.name || '').toLowerCase().trim(), m = name.match(NAME_RE);
-    if (!m) return sendJson(res, 400, { error: `имя вида label.${ZONE_TLD}`, code: 'name_format' });
+    if (!m) return sendJson(res, 400, { error: `имя вида label.${BASE}`, code: 'name_format' });
     if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'системное/односложное имя', code: 'name_format' });
     if (!d.cid) return sendJson(res, 400, { error: 'нужен cid', code: 'need_cid' });
     const cur = reg.names[name];
@@ -197,7 +202,7 @@ const server = http.createServer(async (req, res) => {
     if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return sendJson(res, 403, { error: 'регистрация закрыта' });
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
     const name = String(d.name || '').toLowerCase().trim(), m = name.match(NAME_RE);
-    if (!m) return sendJson(res, 400, { error: `имя вида label.${ZONE_TLD}` });
+    if (!m) return sendJson(res, 400, { error: `имя вида label.${BASE}` });
     if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'системное/односложное имя' });
     if (!d.cid) return sendJson(res, 400, { error: 'нужен cid' });
     reg.names[name] = { cid: String(d.cid).trim(), owner: d.owner || 'admin', ts: Date.now(), title: d.title || name };
@@ -239,7 +244,7 @@ relay.attach(server);
 server.on('connect', (req, socket) => { socket.write('HTTP/1.1 501 Not Implemented\r\n\r\nЗона работает по http\r\n'); socket.end(); });
 
 server.listen(PORT, '0.0.0.0', async () => {
-  console.log(`[portal] :${PORT} → IPFS ${IPFS_GW} · зона .${ZONE_TLD} · имён: ${Object.keys(reg.names).length} · реле on`);
+  console.log(`[portal] :${PORT} → IPFS ${IPFS_GW} · зона ${BASE} · имён: ${Object.keys(reg.names).length} · реле on`);
   await crawl();
   setInterval(crawl, 5 * 60 * 1000);
 });

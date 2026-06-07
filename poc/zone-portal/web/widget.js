@@ -4,7 +4,7 @@
 // Личность читается из скрытого моста id.nt (ключ туда не утекает).
 (function () {
   if (window.__noetWidget) return; window.__noetWidget = true;
-  const ID_ORIGIN = 'http://id.nt';
+  const ID_ORIGIN = 'http://id.noet.nt';
   const T = (k) => (window.t ? window.t(k) : ({ guest: 'Гость', login: 'Войти', logout: 'Выйти', account: 'Аккаунт', profile: 'Профиль', search_nav: 'Поиск', relay_nav: 'Реле', hide: 'Спрятать' }[k] || k));
   const LOGO_URI = 'data:image/svg+xml,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='lg' x1='8' y1='8' x2='56' y2='56' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#7c5cff'/><stop offset='1' stop-color='#9d8bff'/></linearGradient></defs><path d='M42.16 12.49 A22 22 0 1 1 21.84 12.49' fill='none' stroke='url(#lg)' stroke-width='5' stroke-linecap='round'/><circle cx='32' cy='32' r='6.5' fill='url(#lg)'/></svg>");
 
@@ -125,16 +125,16 @@
   const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   function renderPanel() {
     const m = state.me || {};
-    const dname = (m.profile && m.profile.name) || (m.handle ? '@' + m.handle : T('guest'));
+    const dname = (m.profile && m.profile.name) || m.handle || T('guest');
     const headAv = (m.pubkey && (m.loggedIn || m.hasKey)) ? avatar(m.pubkey, dname, m.profile) : LOGO_URI;
-    const nav = `<div class=nav><a href="http://search.nt/">${T('search_nav')}</a><a href="http://relay.nt/">${T('relay_nav')}</a></div>`;
+    const nav = `<div class=nav><a href="http://noet.nt/">${T('search_nav')}</a><a href="http://relay.noet.nt/">${T('relay_nav')}</a></div>`;
     let body;
     if (m.loggedIn) {
-      body = nav + `<a class=it href="http://id.nt/">✎ ${T('account')}</a><div class=sep></div>
+      body = nav + `<a class=it href="http://id.noet.nt/">✎ ${T('account')}</a><div class=sep></div>
         <button class=it id=logout>⏻ ${T('logout')}</button>
         <button class=it id=hide>↘ ${T('hide')} <span class=sub>Alt+N</span></button>`;
     } else {
-      body = `<a class=primary href="http://id.nt/">${T('login')}</a>` + nav +
+      body = `<a class=primary href="http://id.noet.nt/">${T('login')}</a>` + nav +
         `<button class=it id=hide>↘ ${T('hide')} <span class=sub>Alt+N</span></button>`;
     }
     panel.innerHTML = `<div class=hd><img class=av src="${headAv}"><div><div class=nm>${escHtml(dname)}</div>${m.loggedIn ? `<div class=sub>@${escHtml(m.handle)}</div>` : `<div class=sub>${T('guest')}</div>`}</div><button class=x id=close>×</button></div>`
