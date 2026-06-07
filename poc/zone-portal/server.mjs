@@ -103,8 +103,8 @@ function sendFile(res, file, code = 200) {
 }
 // инжект виджета в страницы зоны (контент из IPFS)
 function withWidget(html) {
-  const tag = '<script src="/widget.js"></script>';
-  if (html.includes('__noetWidget') || html.includes('/widget.js')) return html;
+  const tag = '<script src="/i18n.js"></script><script src="/widget.js"></script>';
+  if (html.includes('/widget.js')) return html;
   return html.includes('</body>') ? html.replace('</body>', tag + '</body>') : html + tag;
 }
 
@@ -126,7 +126,8 @@ const notFoundPage = (name) => `<!doctype html><meta charset=utf-8><title>${esc(
 // ---- статические ассеты (host-независимо) ----
 const STATIC = {
   '/widget.js': join(WEB, 'widget.js'),
-  '/bridge.js': join(WEB, 'bridge.js'),
+  '/account.js': join(WEB, 'account.js'),
+  '/i18n.js': join(WEB, 'i18n.js'),
   '/app.css': join(WEB, 'app.css'),
   '/logo.svg': join(WEB, 'logo.svg'),
   '/vendor/noble-secp256k1.js': join(__dir, 'vendor', 'noble-secp256k1.js'),
@@ -167,7 +168,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && path === '/api/auth/login') {
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
     const r = await auth.login(d);
-    return sendJson(res, r.ok ? 200 : (r.code || 400), r);
+    if (r.ok) return sendJson(res, 200, r);
+    return sendJson(res, r.code || 400, { error: r.error, code: r.errcode || 'generic' });
   }
   if (req.method === 'GET' && path === '/api/me') {
     const m = auth.me(bearer(req));
@@ -179,14 +181,14 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'POST' && path === '/api/claim') {
     const pk = auth.sessionPubkey(bearer(req));
-    if (!pk) return sendJson(res, 401, { error: 'нужен вход, чтобы занять имя' });
-    let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+    if (!pk) return sendJson(res, 401, { error: 'нужен вход, чтобы занять имя', code: 'need_login' });
+    let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json', code: 'generic' }); }
     const name = String(d.name || '').toLowerCase().trim(), m = name.match(NAME_RE);
-    if (!m) return sendJson(res, 400, { error: `имя вида label.${ZONE_TLD}` });
-    if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'системное/односложное имя' });
-    if (!d.cid) return sendJson(res, 400, { error: 'нужен cid' });
+    if (!m) return sendJson(res, 400, { error: `имя вида label.${ZONE_TLD}`, code: 'name_format' });
+    if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'системное/односложное имя', code: 'name_format' });
+    if (!d.cid) return sendJson(res, 400, { error: 'нужен cid', code: 'need_cid' });
     const cur = reg.names[name];
-    if (cur && cur.owner && cur.owner !== pk) return sendJson(res, 409, { error: 'имя занято другим участником', owner_handle: cur.owner_handle || null });
+    if (cur && cur.owner && cur.owner !== pk) return sendJson(res, 409, { error: 'имя занято другим участником', code: 'name_taken', owner_handle: cur.owner_handle || null });
     reg.names[name] = { cid: String(d.cid).trim(), owner: pk, owner_handle: auth.handleOf(pk), ts: Date.now(), title: d.title || name };
     saveReg(); await crawl();
     return sendJson(res, 201, { name, ...reg.names[name] });
@@ -207,7 +209,7 @@ const server = http.createServer(async (req, res) => {
   if (isZone(host)) {
     if (host === SEARCH_NAME) return sendFile(res, join(WEB, 'search.html'));
     if (host === RELAY_NAME) return sendFile(res, join(WEB, 'relay.html'));
-    if (host === ID_NAME) return sendFile(res, join(WEB, 'bridge.html'));
+    if (host === ID_NAME) return sendFile(res, join(WEB, 'account.html'));
     const rec = reg.names[host];
     if (!rec) return sendHtml(res, 404, notFoundPage(host));
     try { return sendHtml(res, 200, withWidget((await ipfsCat(`${rec.cid}/index.html`)).toString('utf8'))); }
@@ -217,7 +219,7 @@ const server = http.createServer(async (req, res) => {
   // ----- прямой доступ по IP (отладка) -----
   if (req.method === 'GET' && (path === '/' || path === '/index.html')) return sendFile(res, join(WEB, 'search.html'));
   if (req.method === 'GET' && path === '/relay') return sendFile(res, join(WEB, 'relay.html'));
-  if (req.method === 'GET' && (path === '/id' || path === '/id/')) return sendFile(res, join(WEB, 'bridge.html'));
+  if (req.method === 'GET' && (path === '/id' || path === '/id/' || path === '/account')) return sendFile(res, join(WEB, 'account.html'));
   if (req.method === 'GET' && path.startsWith('/r/')) {
     const name = path.slice('/r/'.length).toLowerCase();
     const rec = reg.names[name];

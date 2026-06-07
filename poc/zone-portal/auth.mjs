@@ -66,17 +66,17 @@ async function verifyEvent(ev) {
 
 // ---- API ----
 export async function login({ event, handle, invite }) {
-  if (!(await verifyEvent(event))) return { code: 401, error: 'подпись не прошла' };
+  if (!(await verifyEvent(event))) return { code: 401, error: 'подпись не прошла', errcode: 'bad_sig' };
   const ch = ((event.tags || []).find((t) => t[0] === 'challenge') || [])[1];
-  if (!challengeOk(ch)) return { code: 401, error: 'challenge невалиден или протух' };
+  if (!challengeOk(ch)) return { code: 401, error: 'challenge невалиден или протух', errcode: 'bad_challenge' };
   const pubkey = event.pubkey;
   let m = members[pubkey];
   if (!m) {
     handle = String(handle || '').toLowerCase().trim();
-    if (!HANDLE_RE.test(handle)) return { code: 400, error: 'хэндл: 2–20 символов [a-z0-9_]' };
-    if (Object.values(members).some((x) => x.handle === handle)) return { code: 409, error: 'хэндл занят' };
+    if (!HANDLE_RE.test(handle)) return { code: 400, error: 'хэндл: 2–20 символов [a-z0-9_]', errcode: 'bad_handle' };
+    if (Object.values(members).some((x) => x.handle === handle)) return { code: 409, error: 'хэндл занят', errcode: 'handle_taken' };
     const inv = invites[invite];
-    if (!inv || inv.usedBy) return { code: 403, error: 'инвайт неверный или уже использован' };
+    if (!inv || inv.usedBy) return { code: 403, error: 'инвайт неверный или уже использован', errcode: 'invite_invalid' };
     inv.usedBy = pubkey; inv.usedTs = Date.now(); saveInvites();
     m = members[pubkey] = { handle, ts: Date.now(), invitedBy: inv.createdBy || 'founder' };
     saveMembers();

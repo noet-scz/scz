@@ -9,13 +9,11 @@
   .mark{display:flex;align-items:center;gap:.7rem;margin-bottom:1.6rem}
   .mark img{width:54px;height:54px}
   .mark h1{font-size:2.6rem;margin:0;font-weight:680;letter-spacing:-.5px}
-  .mark .t{color:var(--mut);font-size:.85rem;margin-top:.25rem}
   form{width:100%;display:flex;gap:.5rem}
   #q{flex:1;font-size:1.05rem;border-radius:14px;padding:.95rem 1.1rem}
   #q::placeholder{color:#5b5b66}
   .go{background:var(--acc);border:0;border-radius:14px;color:#fff;padding:0 1.25rem;display:inline-flex;align-items:center;justify-content:center}
-  .go:hover{background:#6c4dff}
-  .go svg{width:21px;height:21px;display:block}
+  .go:hover{background:#6c4dff}.go svg{width:21px;height:21px;display:block}
   #res{width:100%;margin-top:1.4rem}
   .item{padding:.85rem .2rem;border-bottom:1px solid #16161d}
   .item a.title{color:var(--acc2);font-size:1.1rem;font-weight:550}
@@ -26,50 +24,48 @@
   .quick a{font-size:.85rem;color:var(--mut);background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.25rem .8rem}
   .quick a:hover{border-color:var(--acc);text-decoration:none;color:var(--fg)}
 </style></head><body>
-<div class=top><button class=chip id=chip>Войти</button></div>
+<div class=top><button class=chip id=chip></button></div>
 <div class=stage>
-  <div class=mark>
-    <img src="/logo.svg" alt="">
-    <h1>noet</h1>
-  </div>
+  <div class=mark><img src="/logo.svg" alt=""><h1>noet</h1></div>
   <form id=f autocomplete=off>
-    <input id=q placeholder="искать в зоне" autofocus>
-    <button class=go type=submit aria-label="Найти"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg></button>
+    <input id=q autofocus>
+    <button class=go type=submit aria-label="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg></button>
   </form>
   <div class=quick>
-    <a href="http://relay.nt/">Реле</a>
+    <a id=q_relay href="http://relay.nt/"></a>
     <a href="http://manifest.nt/">Манифест</a>
     <a href="http://practices.nt/">Практики</a>
   </div>
   <div id=res></div>
 </div>
+<script src="/i18n.js"></script>
 <script src="/widget.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const NAME=/^[a-z0-9-]{1,32}\.nt$/i;
+function applyLang(){ $('#q').placeholder=t('search_ph'); $('#q_relay').textContent=t('relay_nav'); chip(); }
 $('#f').addEventListener('submit',async e=>{
   e.preventDefault();
   const q=$('#q').value.trim(); if(!q){$('#res').innerHTML='';return;}
   if(NAME.test(q)){location.href='http://'+q.toLowerCase()+'/';return;}
-  $('#res').innerHTML='<div class=empty>ищу…</div>';
+  $('#res').innerHTML='<div class=empty>'+t('searching')+'</div>';
   let items=[]; try{items=await(await fetch('/api/search?q='+encodeURIComponent(q))).json();}catch{}
   $('#res').innerHTML = items.length ? items.map(it=>
     `<div class=item><a class=title href="http://${esc(it.name)}/">${esc(it.title)}</a>
      <div class=u>${esc(it.name)}</div><div class=s>${esc(it.snippet)}</div></div>`).join('')
-   : '<div class=empty>ничего не найдено по «'+esc(q)+'»</div>';
+   : '<div class=empty>'+t('nothing')+'</div>';
 });
-// профиль-чип
 async function chip(){
   let me=null; try{me=await window.Noet.whoami();}catch{}
   const c=$('#chip');
   if(me&&me.loggedIn){
     const name=(me.profile&&me.profile.name)||('@'+me.handle);
     c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,name,me.profile)}">`+esc(name);
-    c.onclick=()=>window.Noet.openPanel('menu');
-  }else{
-    c.textContent='Войти'; c.onclick=()=>window.Noet.openLogin();
-  }
+  }else{ c.textContent=t('login'); }
+  c.onclick=()=>location.href='http://id.nt/';
 }
+window.addEventListener('noetlang',applyLang);
+applyLang();
 window.Noet.ready().then(chip); window.Noet.onChange(chip);
 </script></body></html>
