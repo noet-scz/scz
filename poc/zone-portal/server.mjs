@@ -19,6 +19,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const WEB = join(__dir, 'web');
 const PORT = Number(process.env.PORT || 8090);
 const IPFS_GW = process.env.IPFS_GW || 'http://127.0.0.1:8080';
+const IPFS_API = process.env.IPFS_API || 'http://127.0.0.1:5001';
 const ZONE_TLD = (process.env.ZONE_TLD || 'nt').toLowerCase();      // для PAC: *.nt -> PROXY
 // База зоны — один регистрируемый домен, чтобы все страницы были SAME-SITE и делили
 // хранилище личности (иначе браузер изолирует localStorage между разными доменами .nt).
@@ -42,6 +43,60 @@ async function ipfsCat(path) {
   const r = await fetch(`${IPFS_GW}/ipfs/${path}`, { redirect: 'follow' });
   if (!r.ok) throw new Error('gateway ' + r.status);
   return Buffer.from(await r.arrayBuffer());
+}
+// добавить файл в IPFS через RPC (локальный узел), обёрнутый в директорию -> CID директории
+async function ipfsAdd(filename, content) {
+  const boundary = '----noet' + Math.random().toString(16).slice(2);
+  const head = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/octet-stream\r\n\r\n`;
+  const body = Buffer.concat([Buffer.from(head), Buffer.from(content), Buffer.from(`\r\n--${boundary}--\r\n`)]);
+  const r = await fetch(`${IPFS_API}/api/v0/add?cid-version=1&wrap-with-directory=true&pin=true`, {
+    method: 'POST', headers: { 'content-type': `multipart/form-data; boundary=${boundary}` }, body,
+  });
+  if (!r.ok) throw new Error('ipfs add ' + r.status);
+  const lines = (await r.text()).trim().split('\n').map((l) => { try { return JSON.parse(l); } catch { return {}; } });
+  const dir = lines.find((o) => o.Name === '' && o.Hash);   // обёртка-директория
+  if (!dir) throw new Error('ipfs add: нет CID директории');
+  return dir.Hash;
+}
+// рендер страницы из текста (шаблон зоны). Текст экранируется; пустая строка = абзац,
+// строка с "# " = заголовок; ссылки и имена *.noet.nt автолинкуются.
+function renderPage({ title, body, name, handle, template }) {
+  const e = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const link = (h) => h.replace(/(https?:\/\/[^\s<]+|[a-z0-9-]{1,32}\.noet\.nt(?:\/[^\s<]*)?)/gi, (m) => `<a href="${/^https?:/i.test(m) ? m : 'http://' + m}">${m}</a>`);
+  const out = []; let para = [];
+  const flush = () => { if (para.length) { out.push(`<p>${link(e(para.join('\n'))).replace(/\n/g, '<br>')}</p>`); para = []; } };
+  for (const ln of String(body || '').replace(/\r/g, '').split('\n')) {
+    const ttrim = ln.trim();
+    if (!ttrim) { flush(); continue; }
+    if (/^#\s+/.test(ttrim)) { flush(); out.push(`<h2>${e(ttrim.replace(/^#\s+/, ''))}</h2>`); continue; }
+    para.push(ttrim);
+  }
+  flush();
+  const blocks = out.join('\n  ');
+  const accent = template === 'note' ? '#34d399' : '#7c5cff';
+  return `<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${e(title || name)}</title>
+<link rel="icon" href="/logo.svg">
+<style>
+  :root{--bg:#0a0a0c;--card:#15151c;--bd:#23232c;--fg:#ececf2;--mut:#8b8b98;--acc:${accent};--acc2:#9d8bff}
+  *{box-sizing:border-box}body{font:16px/1.7 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);margin:0}
+  main{max-width:44rem;margin:0 auto;padding:3.4rem 1.3rem 6rem}
+  .brand{display:flex;align-items:center;gap:.6rem;margin-bottom:1.8rem}
+  .brand img{width:30px;height:30px}.brand b{font-size:1rem;color:var(--mut)}
+  h1{font-size:2.1rem;line-height:1.15;margin:0 0 .6em}
+  h2{font-size:1.25rem;margin:2rem 0 .5rem;border-left:3px solid var(--acc);padding-left:.6rem}
+  a{color:var(--acc2)}p{margin:0 0 1rem}
+  footer{margin-top:3rem;color:var(--mut);font-size:.85rem;border-top:1px solid var(--bd);padding-top:1rem}
+  code{background:var(--card);border:1px solid var(--bd);border-radius:5px;padding:.1em .4em}
+</style></head>
+<body><main>
+  <div class="brand"><img src="/logo.svg" alt=""><b>noet</b></div>
+  <h1>${e(title || name)}</h1>
+  ${blocks || '<p class="mut"></p>'}
+  <footer>${handle ? 'Автор @' + e(handle) + '  ·  ' : ''}<code>${e(name)}</code>  ·  noet</footer>
+</main></body></html>`;
 }
 
 // ---- индекс/поиск ----
@@ -198,6 +253,25 @@ const server = http.createServer(async (req, res) => {
     saveReg(); await crawl();
     return sendJson(res, 201, { name, ...reg.names[name] });
   }
+  // создать/обновить страницу: рендер -> IPFS -> занять имя (нужен вход; имя своё или свободное)
+  if (req.method === 'POST' && path === '/api/publish') {
+    const pk = auth.sessionPubkey(bearer(req));
+    if (!pk) return sendJson(res, 401, { error: 'нужен вход, чтобы публиковать', code: 'need_login' });
+    let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json', code: 'generic' }); }
+    const name = String(d.name || '').toLowerCase().trim(), m = name.match(NAME_RE);
+    if (!m) return sendJson(res, 400, { error: `имя вида label.${BASE}`, code: 'name_format' });
+    if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'системное/односложное имя', code: 'name_format' });
+    const cur = reg.names[name];
+    if (cur && cur.owner && cur.owner !== pk) return sendJson(res, 409, { error: 'имя занято другим участником', code: 'name_taken' });
+    const title = String(d.title || '').slice(0, 140).trim(), body = String(d.body || '').slice(0, 20000);
+    if (!title && !body.trim()) return sendJson(res, 400, { error: 'пустая страница', code: 'empty' });
+    const html = renderPage({ title, body, name, handle: auth.handleOf(pk), template: d.template });
+    let cid; try { cid = await ipfsAdd('index.html', Buffer.from(html, 'utf8')); } catch (e) { return sendJson(res, 502, { error: 'ipfs: ' + e.message, code: 'generic' }); }
+    reg.names[name] = { cid, owner: pk, owner_handle: auth.handleOf(pk), ts: Date.now(), title: title || name };
+    saveReg(); await crawl();
+    return sendJson(res, 201, { name, cid, title: title || name });
+  }
+
   if (req.method === 'POST' && path === '/register') {
     if (!ADMIN_TOKEN || req.headers['x-admin-token'] !== ADMIN_TOKEN) return sendJson(res, 403, { error: 'регистрация закрыта' });
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }

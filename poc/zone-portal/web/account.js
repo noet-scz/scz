@@ -96,6 +96,7 @@ const OPS = {
     return { event: ev };
   },
   async claim({ name, cid, title }) { return await api('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json', ...authH() }, body: JSON.stringify({ name, cid, title }) }); },
+  async publish({ name, title, body, template }) { return await api('/api/publish', { method: 'POST', headers: { 'content-type': 'application/json', ...authH() }, body: JSON.stringify({ name, title, body, template }) }); },
 };
 
 function publishToRelay(ev) {
@@ -197,10 +198,14 @@ function renderApp() {
         <button class="btn" id="psave">${t('save')}</button><div class="msg" id="pmsg"></div>
       </div>
       <div class="card">
+        <h2>${t('create_page')}</h2>
+        <label>${t('page_name')}</label><input id="pg_name" placeholder="blog.noet.nt">
+        <label>${t('page_title')}</label><input id="pg_title" placeholder="${t('page_title_ph')}">
+        <label>${t('page_body')}</label><textarea id="pg_body" placeholder="${t('page_body_ph')}" style="min-height:150px"></textarea>
+        <button class="btn" id="publish">${t('publish_btn')}</button><div class="msg" id="pubmsg"></div>
+      </div>
+      <div class="card">
         <h2>${t('your_names')}</h2><div id="names" class="mut">…</div>
-        <div class="sep"></div><label>${t('claim_title')}</label>
-        <div class="row"><input id="c_name" placeholder="${t('name_ph')}"><input id="c_cid" placeholder="${t('cid_ph')}"></div>
-        <button class="btn" id="claim">${t('claim_btn')}</button><div class="msg" id="cmsg"></div>
       </div>
       <div class="card">
         <div class="row2">
@@ -235,10 +240,14 @@ function renderApp() {
       try { const r = await OPS.publishProfile({ name: id('p_name').value.trim(), picture: id('p_pic').value.trim(), about: id('p_about').value.trim() }); try { await publishToRelay(r.event); } catch {} await refresh(); render(); setMsg('pmsg', t('saved'), 'ok'); notifyParent(); }
       catch (e) { setMsg('pmsg', errText(e), 'err'); }
     });
-    on('claim', async () => {
-      setMsg('cmsg', '…', '');
-      try { await OPS.claim({ name: id('c_name').value.trim(), cid: id('c_cid').value.trim() }); setMsg('cmsg', t('claimed'), 'ok'); loadNames(); }
-      catch (e) { setMsg('cmsg', errText(e), 'err'); }
+    on('publish', async () => {
+      setMsg('pubmsg', '…', '');
+      try {
+        const r = await OPS.publish({ name: id('pg_name').value.trim(), title: id('pg_title').value.trim(), body: id('pg_body').value });
+        const el = id('pubmsg'); el.className = 'msg ok'; el.textContent = t('published') + ' ';
+        const a = document.createElement('a'); a.href = 'http://' + r.name + '/'; a.textContent = r.name; a.target = '_blank'; el.appendChild(a);
+        id('pg_name').value = ''; id('pg_title').value = ''; id('pg_body').value = ''; loadNames();
+      } catch (e) { setMsg('pubmsg', errText(e), 'err'); }
     });
     on('backup', async () => { try { const r = await OPS.exportKey(); download('noet-ключ.txt', backupText(r.nsec, r.pubkey)); } catch (e) { alert(errText(e)); } });
     on('forget', async () => { if (!confirm(t('forget_confirm'))) return; await OPS.forgetKey(); await init(); notifyParent(); });
