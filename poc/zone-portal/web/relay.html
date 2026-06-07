@@ -34,7 +34,7 @@
   <header>
     <span class=brand><img src="/logo.svg" alt=""></span>
     <h1 id=title></h1>
-    <div class=right><span class=dot id=dot></span><button class=chip id=chip></button></div>
+    <span class=dot id=dot title="связь"></span>
   </header>
   <div id=log></div>
   <footer id=foot></footer>
@@ -115,16 +115,10 @@ function renderFoot(){
     $('#cf').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('#ci').value; $('#ci').value=''; $('#cb').disabled=true; try{await send(v);}catch(err){ $('#ci').value=v; alert(t('err_generic')); } $('#cb').disabled=false; $('#ci').focus(); });
   }else f.innerHTML='';
 }
-function renderChip(){
-  const c=$('#chip');
-  if(loggedIn()){ const n=(me.profile&&me.profile.name)||me.handle; c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,n,me.profile)}">`+esc(n); }
-  else c.textContent=t('login');
-  c.onclick=()=>location.href=ID;
-}
-function applyLang(){ $('#title').textContent=t('relay_title'); renderChip(); renderFoot(); render(); }
+function applyLang(){ $('#title').textContent=t('relay_title'); renderFoot(); render(); }
 async function syncMe(){
   try{me=await window.Noet.whoami();}catch{me=null;}
-  renderChip(); renderFoot(); render();
+  renderFoot(); render();
   if(loggedIn()) connect(); else disconnect();
 }
 window.addEventListener('noetlang',applyLang);

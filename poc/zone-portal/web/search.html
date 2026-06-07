@@ -3,7 +3,6 @@
 <title>noet</title>
 <link rel=icon href="/logo.svg"><link rel=stylesheet href="/app.css">
 <style>
-  .top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:flex-end;padding:1rem 1.2rem;z-index:5}
   .stage{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
     padding:clamp(4rem,18vh,11rem) 1.2rem 4rem;max-width:42rem;margin:0 auto}
   .mark{display:flex;align-items:center;gap:.7rem;margin-bottom:1.6rem}
@@ -24,7 +23,6 @@
   .quick a{font-size:.85rem;color:var(--mut);background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.25rem .8rem}
   .quick a:hover{border-color:var(--acc);text-decoration:none;color:var(--fg)}
 </style></head><body>
-<div class=top><button class=chip id=chip></button></div>
 <div class=stage>
   <div class=mark><img src="/logo.svg" alt=""><h1>noet</h1></div>
   <form id=f autocomplete=off>
@@ -44,7 +42,7 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const NAME=/^[a-z0-9-]{1,32}\.noet\.nt$/i;
-function applyLang(){ $('#q').placeholder=t('search_ph'); $('#q_relay').textContent=t('relay_nav'); chip(); }
+function applyLang(){ $('#q').placeholder=t('search_ph'); $('#q_relay').textContent=t('relay_nav'); }
 $('#f').addEventListener('submit',async e=>{
   e.preventDefault();
   const q=$('#q').value.trim(); if(!q){$('#res').innerHTML='';return;}
@@ -56,16 +54,6 @@ $('#f').addEventListener('submit',async e=>{
      <div class=u>${esc(it.name)}</div><div class=s>${esc(it.snippet)}</div></div>`).join('')
    : '<div class=empty>'+t('nothing')+'</div>';
 });
-async function chip(){
-  let me=null; try{me=await window.Noet.whoami();}catch{}
-  const c=$('#chip');
-  if(me&&me.loggedIn){
-    const name=(me.profile&&me.profile.name)||me.handle;
-    c.innerHTML=`<img class=av src="${window.Noet.avatar(me.pubkey,name,me.profile)}">`+esc(name);
-  }else{ c.textContent=t('login'); }
-  c.onclick=()=>location.href='http://id.noet.nt/';
-}
 window.addEventListener('noetlang',applyLang);
 applyLang();
-window.Noet.ready().then(chip); window.Noet.onChange(chip);
 </script></body></html>
