@@ -46,7 +46,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const linkify=s=>esc(s).replace(/(https?:\/\/[^\s<]+|[a-z0-9-]{1,32}\.noet\.nt(?:\/[^\s<]*)?)/gi,m=>{
   const href=/^https?:/i.test(m)?m:'http://'+m; return `<a href="${href}">${m}</a>`;});
-const ID='http://id.noet.nt/';
+const ID='http://id.nt/';
 
 let me=null, ws=null, connected=false;
 const events=new Map(), profiles=new Map(), pTime=new Map(); let handles={};

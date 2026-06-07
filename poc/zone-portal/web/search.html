@@ -30,7 +30,7 @@
     <button class=go type=submit aria-label="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.65" y2="16.65"></line></svg></button>
   </form>
   <div class=quick>
-    <a id=q_relay href="http://relay.noet.nt/"></a>
+    <a id=q_relay href="http://relay.nt/"></a>
     <a href="http://manifest.noet.nt/">Манифест</a>
     <a href="http://practices.noet.nt/">Практики</a>
   </div>
@@ -41,7 +41,7 @@
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const NAME=/^[a-z0-9-]{1,32}\.noet\.nt$/i;
+const NAME=/^[a-z0-9-]{1,32}\.(noet\.nt|blog)$/i;
 function applyLang(){ $('#q').placeholder=t('search_ph'); $('#q_relay').textContent=t('relay_nav'); }
 $('#f').addEventListener('submit',async e=>{
   e.preventDefault();

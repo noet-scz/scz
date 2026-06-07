@@ -9,9 +9,11 @@
 
 const PROXY = '127.0.0.1:8090';
 const TLD = 'nt';
+const BLOG = 'blog';
 
 const PAC = `function FindProxyForURL(url, host) {
   if (shExpMatch(host, "*.${TLD}")) return "PROXY ${PROXY}";
+  if (shExpMatch(host, "*.${BLOG}")) return "PROXY ${PROXY}";
   return "DIRECT";
 }`;
 

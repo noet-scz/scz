@@ -1,42 +1,12 @@
-// noet — страница личности на origin id.nt. Здесь живёт ключ.
-//  - сверху (top-level): видимая страница аккаунта (создать/войти/профиль/имена/бэкап).
-//  - в iframe: мост — отвечает на postMessage (whoami всем, signEvent доверенным).
-// Хеши на ЧИСТОМ JS: на http-origin (не localhost) нет crypto.subtle (см. CLAUDE.md §1).
+// noet — страница личности (id.nt).
+// top-level: видимая страница (регистрация/вход/профиль/редактор).
+// popup-режим (?popup=1): логинит и отправляет {ev:'auth', token, nsec} opener-у.
+// Хеши — pure JS: на http-origin нет crypto.subtle (см. CLAUDE.md §1).
 import { schnorr } from '/vendor/noble-secp256k1.js';
 
-/* ---------- sha256 (pure JS, без WebCrypto) ---------- */
-const K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
-function sha256hex(str) {
-  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
-  const bytes = new TextEncoder().encode(str), l = bytes.length;
-  const withOne = l + 1, pad = (56 - (withOne % 64) + 64) % 64, total = withOne + pad + 8;
-  const m = new Uint8Array(total); m.set(bytes); m[l] = 0x80;
-  const dv = new DataView(m.buffer);
-  dv.setUint32(total - 8, Math.floor((l * 8) / 0x100000000), false);
-  dv.setUint32(total - 4, (l * 8) >>> 0, false);
-  let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a, h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
-  const w = new Uint32Array(64);
-  for (let i = 0; i < total; i += 64) {
-    for (let t = 0; t < 16; t++) w[t] = dv.getUint32(i + t * 4, false);
-    for (let t = 16; t < 64; t++) {
-      const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
-      const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
-      w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
-    }
-    let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
-    for (let t = 0; t < 64; t++) {
-      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25), ch = (e & f) ^ (~e & g);
-      const t1 = (h + S1 + ch + K[t] + w[t]) >>> 0;
-      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22), maj = (a & b) ^ (a & c) ^ (b & c);
-      const t2 = (S0 + maj) >>> 0;
-      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
-    }
-    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
-    h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
-  }
-  const hx = (x) => ('00000000' + (x >>> 0).toString(16)).slice(-8);
-  return hx(h0) + hx(h1) + hx(h2) + hx(h3) + hx(h4) + hx(h5) + hx(h6) + hx(h7);
-}
+/* ---------- sha256 pure JS ---------- */
+const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+function sha256hex(str){const rotr=(x,n)=>(x>>>n)|(x<<(32-n));const bytes=new TextEncoder().encode(str),l=bytes.length;const withOne=l+1,pad=(56-(withOne%64)+64)%64,total=withOne+pad+8;const m=new Uint8Array(total);m.set(bytes);m[l]=0x80;const dv=new DataView(m.buffer);dv.setUint32(total-8,Math.floor((l*8)/0x100000000),false);dv.setUint32(total-4,(l*8)>>>0,false);let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;const w=new Uint32Array(64);for(let i=0;i<total;i+=64){for(let t=0;t<16;t++)w[t]=dv.getUint32(i+t*4,false);for(let t=16;t<64;t++){const s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3);const s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);w[t]=(w[t-16]+s0+w[t-7]+s1)>>>0;}let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;for(let t=0;t<64;t++){const S1=rotr(e,6)^rotr(e,11)^rotr(e,25),ch=(e&f)^(~e&g);const t1=(h+S1+ch+K[t]+w[t])>>>0;const S0=rotr(a,2)^rotr(a,13)^rotr(a,22),maj=(a&b)^(a&c)^(b&c);const t2=(S0+maj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;}const hx=(x)=>('00000000'+(x>>>0).toString(16)).slice(-8);return hx(h0)+hx(h1)+hx(h2)+hx(h3)+hx(h4)+hx(h5)+hx(h6)+hx(h7);}
 
 /* ---------- identity ---------- */
 const LS = localStorage;
@@ -95,39 +65,39 @@ const OPS = {
     LS.setItem(K_PROF, JSON.stringify({ name, picture, about }));
     return { event: ev };
   },
-  async claim({ name, cid, title }) { return await api('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json', ...authH() }, body: JSON.stringify({ name, cid, title }) }); },
   async publish({ name, title, body, template }) { return await api('/api/publish', { method: 'POST', headers: { 'content-type': 'application/json', ...authH() }, body: JSON.stringify({ name, title, body, template }) }); },
 };
 
-function publishToRelay(ev) {
-  const urls = ['ws://relay.noet.nt/relay', 'ws://127.0.0.1:8090/relay'];
-  const one = (i) => new Promise((res, rej) => {
-    let ws; try { ws = new WebSocket(urls[i]); } catch (e) { return rej(e); }
-    let opened = false; const to = setTimeout(() => { try { ws.close(); } catch {} rej(Object.assign(new Error('relay'), { again: !opened })); }, 5000);
-    ws.onopen = () => { opened = true; ws.send(JSON.stringify(['EVENT', ev])); };
-    ws.onmessage = (m) => { let a; try { a = JSON.parse(m.data); } catch { return; } if (a[0] === 'OK' && a[1] === ev.id) { clearTimeout(to); try { ws.close(); } catch {} a[2] ? res() : rej(new Error(a[3] || 'rejected')); } };
-    ws.onerror = () => { clearTimeout(to); rej(Object.assign(new Error('relay'), { again: !opened })); };
-    ws.onclose = () => { if (!opened) { clearTimeout(to); rej(Object.assign(new Error('relay'), { again: true })); } };
-  });
-  return one(0).catch((e) => e && e.again ? one(1) : Promise.reject(e));
+/* ---------- popup-режим (открыт другой страницей зоны) ---------- */
+const IS_POPUP = new URLSearchParams(location.search).has('popup');
+
+async function doPopupAuth() {
+  // Уже залогинен → сразу отдаём токен и nsec opener-у
+  const me = await OPS.whoami();
+  if (me.loggedIn) {
+    const token = LS.getItem(K_TOK);
+    const nsec = getSk();
+    const profile = me.profile;
+    try { window.opener.postMessage({ __noet: 1, ev: 'auth', token, nsec, profile }, '*'); } catch {}
+    setTimeout(() => { try { window.close(); } catch {} }, 300);
+    return true; // уже готово, не рендерить полный UI
+  }
+  if (me.hasKey) {
+    // Ключ есть, но нет токена → логинимся тихо
+    try {
+      await OPS.login({});
+      const token = LS.getItem(K_TOK);
+      const nsec = getSk();
+      const profile = me.profile;
+      try { window.opener.postMessage({ __noet: 1, ev: 'auth', token, nsec, profile }, '*'); } catch {}
+      setTimeout(() => { try { window.close(); } catch {} }, 300);
+      return true;
+    } catch { /* не зарегистрирован, показываем форму регистрации */ }
+  }
+  return false; // надо показать UI
 }
 
-/* ---------- мост (iframe) ---------- */
-const TRUSTED = ['noet.nt', 'relay.noet.nt', 'profile.noet.nt', 'id.noet.nt'];
-const trusted = (o) => { try { return TRUSTED.includes(new URL(o).hostname); } catch { return false; } };
-const OPEN = new Set(['whoami']);
-window.addEventListener('message', async (e) => {
-  const d = e.data; if (!d || d.__noet !== 1 || !d.op) return;
-  const reply = (p) => { try { e.source.postMessage({ __noet: 1, id: d.id, ...p }, e.origin); } catch {} };
-  if (!OPS[d.op]) return reply({ ok: false, error: 'unknown op' });
-  if (!OPEN.has(d.op) && !trusted(e.origin)) return reply({ ok: false, error: 'untrusted', untrusted: true });
-  try { reply({ ok: true, result: await OPS[d.op](d.args || {}) }); }
-  catch (err) { reply({ ok: false, error: String((err && err.message) || err), code: err && err.code }); }
-});
-try { parent.postMessage({ __noet: 1, ev: 'ready' }, '*'); } catch {}
-const notifyParent = () => { try { parent.postMessage({ __noet: 1, ev: 'changed' }, '*'); } catch {} };
-
-/* ===================== видимая страница (top-level) ===================== */
+/* ---------- видимая страница ---------- */
 if (window.top === window.self) renderApp();
 
 function renderApp() {
@@ -148,14 +118,20 @@ function renderApp() {
 
   const header = () => `<div class="hd"><a class="brand" href="http://noet.nt/"><img src="/logo.svg" alt=""><b>noet</b></a>
     <div class="lang"><button data-l="ru" class="${window.noetLang() === 'ru' ? 'on' : ''}">RU</button><button data-l="en" class="${window.noetLang() === 'en' ? 'on' : ''}">EN</button></div></div>`;
-  const wrapErr = (fn) => async (...a) => { try { return await fn(...a); } catch (e) { console.error(e); throw e; } };
 
-  let state = { view: 'loading', me: null, justKey: null };
+  let state = { view: 'loading', me: null, justKey: null, edTitle: '', edBody: '' };
 
-  async function refresh() {
-    try { state.me = await OPS.whoami(); } catch { state.me = null; }
-  }
+  async function refresh() { try { state.me = await OPS.whoami(); } catch { state.me = null; } }
+
   async function init() {
+    // Popup-режим: пробуем тихо авторизоваться и закрыть
+    if (IS_POPUP) {
+      const done = await doPopupAuth();
+      if (done) {
+        root.innerHTML = header() + '<div class="wrap"><div class="card mut" style="text-align:center;padding:2rem">…</div></div>';
+        return;
+      }
+    }
     await refresh();
     if (state.me && state.me.loggedIn) state.view = 'profile';
     else if (state.me && state.me.hasKey) {
@@ -168,8 +144,9 @@ function renderApp() {
   function render() {
     const me = state.me || {};
     let body = '';
-    if (state.view === 'loading') body = `<div class="card mut">…</div>`;
-    else if (state.view === 'create') {
+    if (state.view === 'loading') {
+      body = `<div class="card mut">…</div>`;
+    } else if (state.view === 'create') {
       body = `<div class="card">
         <h1>${t('acc_welcome')}</h1>
         <p class="mut">${t('acc_guest_hint')}</p>
@@ -190,6 +167,7 @@ function renderApp() {
       </div>`;
     } else if (state.view === 'profile') {
       const p = me.profile || {}, dname = (p.name || me.handle);
+      const blogUrl = me.handle ? `http://${me.handle}.blog/` : null;
       body = `<div class="card profile">
         <div class="phd"><img class="bigav" src="${avatar(me.pubkey, dname, p)}"><div><div class="dn">${esc(dname)}</div><div class="mut">@${esc(me.handle)}</div></div></div>
         <label>${t('display_name')}</label><input id="p_name" value="${esc(p.name)}" placeholder="${t('dname_ph')}">
@@ -197,16 +175,11 @@ function renderApp() {
         <label>${t('about_lbl')}</label><textarea id="p_about" placeholder="${t('about_ph')}">${esc(p.about)}</textarea>
         <button class="btn" id="psave">${t('save')}</button><div class="msg" id="pmsg"></div>
       </div>
-      <div class="card">
-        <h2>${t('create_page')}</h2>
-        <label>${t('page_name')}</label><input id="pg_name" placeholder="blog.noet.nt">
-        <label>${t('page_title')}</label><input id="pg_title" placeholder="${t('page_title_ph')}">
-        <label>${t('page_body')}</label><textarea id="pg_body" placeholder="${t('page_body_ph')}" style="min-height:150px"></textarea>
-        <button class="btn" id="publish">${t('publish_btn')}</button><div class="msg" id="pubmsg"></div>
-      </div>
-      <div class="card">
-        <h2>${t('your_names')}</h2><div id="names" class="mut">…</div>
-      </div>
+      ${blogUrl ? `<div class="card"><div class="row2">
+        <div><div class="mut" style="font-size:.8rem;margin-bottom:.3rem">${t('your_page')}</div>
+        <a href="${esc(blogUrl)}" style="font-size:1.05rem;color:var(--acc2)">${esc(me.handle)}.blog</a></div>
+        <button class="btn ghost" id="goedit" style="margin-top:0">${t('edit_page')}</button>
+      </div></div>` : ''}
       <div class="card">
         <div class="row2">
           ${me.hasKey && !me.nip07 ? `<button class="btn ghost" id="backup">${t('show_backup')}</button>` : ''}
@@ -215,6 +188,21 @@ function renderApp() {
         ${me.hasKey && !me.nip07 ? `<button class="lnk danger" id="forget">${t('forget_key')}</button>` : ''}
         ${me.pubkey ? `<div class="mut key">${t('key_label')}: <code>${esc(me.pubkey.slice(0, 32))}…</code></div>` : ''}
       </div>`;
+    } else if (state.view === 'editor') {
+      const handle = (state.me || {}).handle || '';
+      const blogUrl = handle ? handle + '.blog' : '…';
+      body = `<div class="ed-wrap">
+        <div class="ed-head">
+          <button class="lnk" id="edback">← ${t('back')}</button>
+          <span class="mut" style="font-size:.85rem">${esc(blogUrl)}</span>
+        </div>
+        <input class="ed-title" id="ed_title" placeholder="${t('page_title_ph')}" value="${esc(state.edTitle)}">
+        <textarea class="ed-body" id="ed_body" placeholder="${t('page_body_ph')}">${esc(state.edBody)}</textarea>
+        <div class="ed-foot">
+          <button class="btn" id="edpub">${t('publish_btn')}</button>
+          <div class="msg" id="edmsg"></div>
+        </div>
+      </div>`;
     }
     root.innerHTML = header() + `<div class="wrap">${body}</div>`;
     wire();
@@ -222,46 +210,80 @@ function renderApp() {
 
   function setMsg(id, text, cls) { const e = document.getElementById(id); if (e) { e.textContent = text; e.className = 'msg ' + (cls || ''); } }
 
+  async function enterEditor() {
+    state.view = 'editor'; state.edTitle = ''; state.edBody = '';
+    const handle = (state.me || {}).handle;
+    if (handle) {
+      try {
+        const r = await fetch(`/api/resolve/${handle}.blog`);
+        if (r.ok) { const d = await r.json(); if (d.raw) { state.edTitle = d.raw.title || ''; state.edBody = d.raw.body || ''; } }
+      } catch {}
+    }
+    render();
+  }
+
+  // После popup-логина отправляем токен и ключ opener-у
+  async function afterLogin() {
+    if (IS_POPUP && window.opener) {
+      const token = LS.getItem(K_TOK);
+      const nsec = getSk();
+      let profile = null; try { profile = JSON.parse(LS.getItem(K_PROF) || 'null'); } catch {}
+      try { window.opener.postMessage({ __noet: 1, ev: 'auth', token, nsec, profile }, '*'); } catch {}
+      setTimeout(() => { try { window.close(); } catch {} }, 300);
+    }
+  }
+
   function wire() {
     document.querySelectorAll('.lang button').forEach((b) => b.onclick = () => window.setLang(b.dataset.l));
     const id = (x) => document.getElementById(x), on = (x, fn) => { const el = id(x); if (el) el.onclick = fn; };
-    on('create', async () => { try { const r = await OPS.genKey(); state.justKey = r.nsec; download('noet-ключ.txt', backupText(r.nsec, r.pubkey)); await refresh(); state.view = 'register'; render(); } catch (e) { setMsg('msg', errText(e), 'err'); } });
+    on('create', async () => {
+      try { const r = await OPS.genKey(); state.justKey = r.nsec; download('noet-ключ.txt', backupText(r.nsec, r.pubkey)); await refresh(); state.view = 'register'; render(); }
+      catch (e) { setMsg('msg', errText(e), 'err'); }
+    });
     on('toimport', () => { const b = id('importbox'); if (b) b.classList.toggle('hide'); });
-    on('doimport', async () => { try { await OPS.importKey({ nsec: id('impkey').value }); try { await OPS.login({}); await refresh(); state.view = 'profile'; } catch { await refresh(); state.view = 'register'; } render(); } catch (e) { setMsg('msg', errText(e), 'err'); } });
+    on('doimport', async () => {
+      try {
+        await OPS.importKey({ nsec: id('impkey').value });
+        try { await OPS.login({}); await refresh(); state.view = 'profile'; await afterLogin(); }
+        catch { await refresh(); state.view = 'register'; }
+        render();
+      } catch (e) { setMsg('msg', errText(e), 'err'); }
+    });
     on('redl', () => { if (state.justKey) { const pk = state.me && state.me.pubkey; download('noet-ключ.txt', backupText(state.justKey, pk)); } });
     on('register', async () => {
       const handle = id('rhandle').value.trim();
       setMsg('msg', '…', '');
-      try { await OPS.login({ handle }); await refresh(); state.justKey = null; state.view = 'profile'; render(); notifyParent(); }
-      catch (e) { setMsg('msg', errText(e), 'err'); }
+      try {
+        await OPS.login({ handle }); await refresh(); state.justKey = null; state.view = 'profile'; render();
+        await afterLogin();
+      } catch (e) { setMsg('msg', errText(e), 'err'); }
     });
     on('psave', async () => {
       setMsg('pmsg', '…', '');
-      try { const r = await OPS.publishProfile({ name: id('p_name').value.trim(), picture: id('p_pic').value.trim(), about: id('p_about').value.trim() }); try { await publishToRelay(r.event); } catch {} await refresh(); render(); setMsg('pmsg', t('saved'), 'ok'); notifyParent(); }
-      catch (e) { setMsg('pmsg', errText(e), 'err'); }
-    });
-    on('publish', async () => {
-      setMsg('pubmsg', '…', '');
       try {
-        const r = await OPS.publish({ name: id('pg_name').value.trim(), title: id('pg_title').value.trim(), body: id('pg_body').value });
-        const el = id('pubmsg'); el.className = 'msg ok'; el.textContent = t('published') + ' ';
+        await OPS.publishProfile({ name: id('p_name').value.trim(), picture: id('p_pic').value.trim(), about: id('p_about').value.trim() });
+        await refresh(); render(); setMsg('pmsg', t('saved'), 'ok');
+      } catch (e) { setMsg('pmsg', errText(e), 'err'); }
+    });
+    on('goedit', () => enterEditor());
+    on('edback', () => { state.view = 'profile'; render(); });
+    on('edpub', async () => {
+      setMsg('edmsg', '…', '');
+      const title = (id('ed_title').value || '').trim();
+      const body = id('ed_body').value || '';
+      try {
+        const r = await OPS.publish({ title, body }); // имя автоматически handle.blog
+        state.edTitle = title; state.edBody = body;
+        const el = id('edmsg'); el.className = 'msg ok';
+        el.textContent = t('published') + ' ';
         const a = document.createElement('a'); a.href = 'http://' + r.name + '/'; a.textContent = r.name; a.target = '_blank'; el.appendChild(a);
-        id('pg_name').value = ''; id('pg_title').value = ''; id('pg_body').value = ''; loadNames();
-      } catch (e) { setMsg('pubmsg', errText(e), 'err'); }
+      } catch (e) { setMsg('edmsg', errText(e), 'err'); }
     });
     on('backup', async () => { try { const r = await OPS.exportKey(); download('noet-ключ.txt', backupText(r.nsec, r.pubkey)); } catch (e) { alert(errText(e)); } });
-    on('forget', async () => { if (!confirm(t('forget_confirm'))) return; await OPS.forgetKey(); await init(); notifyParent(); });
-    on('logout', async () => { await OPS.logout(); await init(); notifyParent(); });
-    if (state.view === 'profile') loadNames();
+    on('forget', async () => { if (!confirm(t('forget_confirm'))) return; await OPS.forgetKey(); await init(); });
+    on('logout', async () => { await OPS.logout(); await init(); });
   }
-  async function loadNames() {
-    const el = document.getElementById('names'); if (!el) return;
-    try {
-      const all = await (await fetch('/api/names')).json();
-      const mine = Object.entries(all).filter(([, r]) => r.owner === state.me.pubkey);
-      el.innerHTML = mine.length ? mine.map(([n, r]) => `<div class="nrow"><a href="http://${n}/">${n}</a><span class="mut">${(r.cid || '').slice(0, 14)}…</span></div>`).join('') : `<span class="mut">${t('no_names')}</span>`;
-    } catch { el.textContent = '…'; }
-  }
+
   window.addEventListener('noetlang', render);
   init();
 }

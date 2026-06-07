@@ -13,6 +13,8 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 import * as auth from './auth.mjs';
+const BLOG_TLD = (process.env.BLOG_TLD || 'blog').toLowerCase();
+const isBlog = (h) => h.endsWith('.' + BLOG_TLD);
 import { makeRelay } from './ws.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -31,7 +33,7 @@ const APP_HOSTS = new Set([SEARCH_NAME, RELAY_NAME, ID_NAME, `profile.${BASE}`])
 const REG_FILE = process.env.REGISTRY_FILE || join(__dir, 'registry.json');
 const SEED_FILE = join(__dir, 'registry.seed.json');
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
-const NAME_RE = new RegExp(`^([a-z0-9-]{1,32})\\.${BASE.replace(/\./g, '\\.')}$`, 'i');
+const NAME_RE = new RegExp(`^([a-z0-9-]{1,32})(?:\\.${BASE.replace(/\./g, '\\.')}|\\.(${BLOG_TLD}))$`, 'i');
 const RESERVED = new Set(['admin', 'root', 'sys', 'core', 'search', 'relay', 'id', 'profile', 'www', 'api']);
 
 let reg = existsSync(REG_FILE) ? JSON.parse(readFileSync(REG_FILE, 'utf8'))
@@ -149,7 +151,7 @@ const sendHtml = (res, c, h) => { res.writeHead(c, { 'content-type': 'text/html;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const readBody = (req) => new Promise((r) => { let d = ''; req.on('data', (c) => (d += c)); req.on('end', () => r(d)); });
 const hostOf = (req) => (req.headers.host || '').toLowerCase().split(':')[0];
-const isZone = (h) => h === BASE || h.endsWith('.' + BASE);
+const isZone = (h) => h === BASE || h.endsWith('.' + BASE) || h.endsWith('.' + ZONE_TLD);
 function reqUrl(req) { return /^https?:\/\//i.test(req.url) ? new URL(req.url) : new URL(req.url, 'http://x'); }
 const bearer = (req) => { const h = req.headers['authorization'] || ''; return h.startsWith('Bearer ') ? h.slice(7) : (reqUrl(req).searchParams.get('token') || ''); };
 
@@ -220,7 +222,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && path.startsWith('/api/resolve/')) {
     const name = path.slice('/api/resolve/'.length).toLowerCase();
     const rec = reg.names[name];
-    return rec ? sendJson(res, 200, { name, cid: rec.cid }) : sendJson(res, 404, { error: 'not found', name });
+    return rec ? sendJson(res, 200, { name, cid: rec.cid, raw: rec.raw || null, title: rec.title || name }) : sendJson(res, 404, { error: 'not found', name });
   }
 
   // ---- личность (Nostr-ключ) + гейт на участие ----
@@ -258,16 +260,19 @@ const server = http.createServer(async (req, res) => {
     const pk = auth.sessionPubkey(bearer(req));
     if (!pk) return sendJson(res, 401, { error: 'нужен вход, чтобы публиковать', code: 'need_login' });
     let d; try { d = JSON.parse((await readBody(req)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json', code: 'generic' }); }
-    const name = String(d.name || '').toLowerCase().trim(), m = name.match(NAME_RE);
-    if (!m) return sendJson(res, 400, { error: `имя вида label.${BASE}`, code: 'name_format' });
-    if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'системное/односложное имя', code: 'name_format' });
+    // имя: явно указано → валидируем; не указано → handle.blog
+    let name = String(d.name || '').toLowerCase().trim();
+    if (!name) { const h = auth.handleOf(pk); if (!h) return sendJson(res, 400, { error: 'нет хэндла', code: 'need_login' }); name = `${h}.${BLOG_TLD}`; }
+    const m = name.match(NAME_RE);
+    if (!m) return sendJson(res, 400, { error: `короткое имя: буквы, цифры, дефис`, code: 'name_format' });
+    if (RESERVED.has(m[1]) || m[1].length === 1) return sendJson(res, 403, { error: 'зарезервированное имя', code: 'name_format' });
     const cur = reg.names[name];
     if (cur && cur.owner && cur.owner !== pk) return sendJson(res, 409, { error: 'имя занято другим участником', code: 'name_taken' });
     const title = String(d.title || '').slice(0, 140).trim(), body = String(d.body || '').slice(0, 20000);
     if (!title && !body.trim()) return sendJson(res, 400, { error: 'пустая страница', code: 'empty' });
     const html = renderPage({ title, body, name, handle: auth.handleOf(pk), template: d.template });
     let cid; try { cid = await ipfsAdd('index.html', Buffer.from(html, 'utf8')); } catch (e) { return sendJson(res, 502, { error: 'ipfs: ' + e.message, code: 'generic' }); }
-    reg.names[name] = { cid, owner: pk, owner_handle: auth.handleOf(pk), ts: Date.now(), title: title || name };
+    reg.names[name] = { cid, owner: pk, owner_handle: auth.handleOf(pk), ts: Date.now(), title: title || name, raw: { title, body } };
     saveReg(); await crawl();
     return sendJson(res, 201, { name, cid, title: title || name });
   }
@@ -284,11 +289,21 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 201, { name, ...reg.names[name] });
   }
 
+  // ----- *.blog (личные страницы пользователей) -----
+  if (isBlog(host)) {
+    const rec = reg.names[host];
+    if (!rec) return sendHtml(res, 404, notFoundPage(host));
+    try { return sendHtml(res, 200, withWidget((await ipfsCat(`${rec.cid}/index.html`)).toString('utf8'))); }
+    catch (e) { return sendHtml(res, 504, `<h1>504</h1><p>IPFS не отдал контент: ${esc(e.message)}</p>`); }
+  }
+
   // ----- доступ ПО ИМЕНИ (через прокси) -----
   if (isZone(host)) {
-    if (host === SEARCH_NAME) return sendFile(res, join(WEB, 'search.html'));
-    if (host === RELAY_NAME) return sendFile(res, join(WEB, 'relay.html'));
-    if (host === ID_NAME) return sendFile(res, join(WEB, 'account.html'));
+    // плоские .nt + старые *.noet.nt (backward compat)
+    if (host === 'id.nt' || host === ID_NAME) return sendFile(res, join(WEB, 'account.html'));
+    if (host === 'relay.nt' || host === RELAY_NAME) return sendFile(res, join(WEB, 'relay.html'));
+    if (host === 'create.nt') return sendFile(res, join(WEB, 'account.html'));
+    if (host === SEARCH_NAME || host === 'search.nt') return sendFile(res, join(WEB, 'search.html'));
     const rec = reg.names[host];
     if (!rec) return sendHtml(res, 404, notFoundPage(host));
     try { return sendHtml(res, 200, withWidget((await ipfsCat(`${rec.cid}/index.html`)).toString('utf8'))); }
