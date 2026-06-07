@@ -73,12 +73,18 @@ export async function login({ event, handle, invite }) {
   let m = members[pubkey];
   if (!m) {
     handle = String(handle || '').toLowerCase().trim();
+    // пустой хэндл = тихая проверка «этот ключ участник?»; не ошибка для показа
+    if (!handle) return { code: 401, error: 'ключ ещё не зарегистрирован', errcode: 'need_register' };
     if (!HANDLE_RE.test(handle)) return { code: 400, error: 'хэндл: 2–20 символов [a-z0-9_]', errcode: 'bad_handle' };
     if (Object.values(members).some((x) => x.handle === handle)) return { code: 409, error: 'хэндл занят', errcode: 'handle_taken' };
-    const inv = invites[invite];
-    if (!inv || inv.usedBy) return { code: 403, error: 'инвайт неверный или уже использован', errcode: 'invite_invalid' };
-    inv.usedBy = pubkey; inv.usedTs = Date.now(); saveInvites();
-    m = members[pubkey] = { handle, ts: Date.now(), invitedBy: inv.createdBy || 'founder' };
+    // инвайт необязателен (открытая регистрация); если дан — гасим его
+    let invitedBy = 'open';
+    if (invite) {
+      const inv = invites[invite];
+      if (!inv || inv.usedBy) return { code: 403, error: 'инвайт неверный или уже использован', errcode: 'invite_invalid' };
+      inv.usedBy = pubkey; inv.usedTs = Date.now(); saveInvites(); invitedBy = inv.createdBy || 'founder';
+    }
+    m = members[pubkey] = { handle, ts: Date.now(), invitedBy };
     saveMembers();
     return { ok: true, token: makeSession(pubkey), pubkey, handle, registered: true };
   }

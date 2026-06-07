@@ -184,7 +184,6 @@ function renderApp() {
         <div class="ok">✓ ${t('key_ready')}${state.justKey ? ` <a class="lnk" id="redl">${t('download_backup')}</a>` : ''}</div>
         <p class="mut">${t('backup_warn')}</p>
         <label>${t('choose_handle')}</label><input id="rhandle" placeholder="${t('handle_ph')}" autofocus>
-        <label>${t('invite_ph')}</label><input id="rinvite" placeholder="${t('invite_ph')}">
         <button class="btn big" id="register">${t('register_btn')}</button>
         <div class="msg err" id="msg"></div>
       </div>`;
@@ -226,9 +225,9 @@ function renderApp() {
     on('doimport', async () => { try { await OPS.importKey({ nsec: id('impkey').value }); try { await OPS.login({}); await refresh(); state.view = 'profile'; } catch { await refresh(); state.view = 'register'; } render(); } catch (e) { setMsg('msg', errText(e), 'err'); } });
     on('redl', () => { if (state.justKey) { const pk = state.me && state.me.pubkey; download('noet-ключ.txt', backupText(state.justKey, pk)); } });
     on('register', async () => {
-      const handle = id('rhandle').value.trim(), invite = id('rinvite').value.trim();
+      const handle = id('rhandle').value.trim();
       setMsg('msg', '…', '');
-      try { await OPS.login({ handle, invite }); await refresh(); state.justKey = null; state.view = 'profile'; render(); notifyParent(); }
+      try { await OPS.login({ handle }); await refresh(); state.justKey = null; state.view = 'profile'; render(); notifyParent(); }
       catch (e) { setMsg('msg', errText(e), 'err'); }
     });
     on('psave', async () => {
