@@ -120,6 +120,7 @@
 
   async function refresh() {
     try { state.me = await Noet.whoami(); } catch { state.me = null; }
+    try { if (state.me) localStorage.setItem('noet_lastwho', JSON.stringify({ loggedIn: state.me.loggedIn, pubkey: state.me.pubkey, handle: state.me.handle, profile: state.me.profile })); } catch {}
     renderChip();
     if (state.open) renderMenu();
   }
@@ -127,6 +128,7 @@
   function mount() {
     document.documentElement.appendChild(iframe);
     document.body.appendChild(host);
+    try { const c = JSON.parse(localStorage.getItem('noet_lastwho') || 'null'); if (c) state.me = c; } catch {} // мгновенно показать прошлое состояние, без мигания
     renderChip(); applyHidden();
     ready().then(refresh);
   }
