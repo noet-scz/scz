@@ -52,7 +52,7 @@
   let _popup = null;
   function openLoginPopup() {
     if (_popup && !_popup.closed) { try { _popup.focus(); } catch {} return; }
-    _popup = window.open(ID_ORIGIN + '/?popup=1', 'noet-login', 'width=480,height=580,resizable=yes');
+    _popup = window.open(ID_ORIGIN + '/?popup=1', 'noet-login');
   }
   window.addEventListener('message', (e) => {
     if (e.origin !== ID_ORIGIN) return;

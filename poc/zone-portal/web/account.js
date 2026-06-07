@@ -18,7 +18,8 @@ const getSk = () => LS.getItem(K_SK);
 
 async function pubkey() {
   if (nip07()) return await window.nostr.getPublicKey();
-  let sk = getSk(); if (!sk) { sk = hex(schnorr.utils.randomPrivateKey()); LS.setItem(K_SK, sk); }
+  const sk = getSk();
+  if (!sk) throw Object.assign(new Error('no key'), { code: 'no_key' });
   return hex(schnorr.getPublicKey(fromHex(sk)));
 }
 const serialize = (ev) => JSON.stringify([0, ev.pubkey, ev.created_at, ev.kind, ev.tags, ev.content]);
@@ -72,29 +73,36 @@ const OPS = {
 const IS_POPUP = new URLSearchParams(location.search).has('popup');
 
 async function doPopupAuth() {
-  // Уже залогинен → сразу отдаём токен и nsec opener-у
   const me = await OPS.whoami();
   if (me.loggedIn) {
-    const token = LS.getItem(K_TOK);
-    const nsec = getSk();
-    const profile = me.profile;
+    // Уже залогинен → отдаём токен и nsec, закрываемся
+    const token = LS.getItem(K_TOK), nsec = getSk(), profile = me.profile;
     try { window.opener.postMessage({ __noet: 1, ev: 'auth', token, nsec, profile }, '*'); } catch {}
     setTimeout(() => { try { window.close(); } catch {} }, 300);
-    return true; // уже готово, не рендерить полный UI
+    return true;
   }
-  if (me.hasKey) {
-    // Ключ есть, но нет токена → логинимся тихо
+  if (me.hasKey && getSk()) {
+    // Ключ есть, токена нет → тихий логин (известный pubkey)
     try {
       await OPS.login({});
-      const token = LS.getItem(K_TOK);
-      const nsec = getSk();
-      const profile = me.profile;
+      const token = LS.getItem(K_TOK), nsec = getSk(), profile = me.profile;
       try { window.opener.postMessage({ __noet: 1, ev: 'auth', token, nsec, profile }, '*'); } catch {}
       setTimeout(() => { try { window.close(); } catch {} }, 300);
       return true;
-    } catch { /* не зарегистрирован, показываем форму регистрации */ }
+    } catch { /* ключ есть, но не зарегистрирован → показываем register */ }
   }
-  return false; // надо показать UI
+  return false;
+}
+
+/* ---------- миграция: принимаем ключ из id.noet.nt ---------- */
+if (new URLSearchParams(location.search).has('migrate')) {
+  try { window.opener.postMessage({ __noet: 1, ev: 'ready_migrate' }, 'http://id.noet.nt'); } catch {}
+  window.addEventListener('message', (e) => {
+    if (e.origin !== 'http://id.noet.nt') return;
+    const d = e.data; if (!d || d.__noet !== 1 || d.ev !== 'migrate') return;
+    try { if (d.sk) LS.setItem(K_SK, d.sk); } catch {}
+    try { if (d.prof) LS.setItem(K_PROF, d.prof); } catch {}
+  });
 }
 
 /* ---------- видимая страница ---------- */
@@ -150,11 +158,12 @@ function renderApp() {
       body = `<div class="card">
         <h1>${t('acc_welcome')}</h1>
         <p class="mut">${t('acc_guest_hint')}</p>
-        <button class="btn big" id="create">${t('create_identity')}</button>
-        <div class="or"><button class="lnk" id="toimport">${t('have_key')}</button></div>
-        <div id="importbox" class="hide"><label>${t('import_key')}</label>
-          <input id="impkey" placeholder="${t('import_ph')}"><button class="btn" id="doimport">${t('import_key')}</button></div>
+        <label>${t('import_key')}</label>
+        <input id="impkey" placeholder="${t('import_ph')}" autofocus>
+        <button class="btn big" id="doimport">${t('import_key')}</button>
         <div class="msg err" id="msg"></div>
+        <div class="sep"></div>
+        <div class="or"><button class="lnk" id="create">${t('create_identity')}</button></div>
       </div>`;
     } else if (state.view === 'register') {
       body = `<div class="card">
@@ -237,10 +246,10 @@ function renderApp() {
     document.querySelectorAll('.lang button').forEach((b) => b.onclick = () => window.setLang(b.dataset.l));
     const id = (x) => document.getElementById(x), on = (x, fn) => { const el = id(x); if (el) el.onclick = fn; };
     on('create', async () => {
+      if (!confirm('Создать новый ключ? Только если у тебя его нет. Старый ключ станет недоступен.')) return;
       try { const r = await OPS.genKey(); state.justKey = r.nsec; download('noet-ключ.txt', backupText(r.nsec, r.pubkey)); await refresh(); state.view = 'register'; render(); }
       catch (e) { setMsg('msg', errText(e), 'err'); }
     });
-    on('toimport', () => { const b = id('importbox'); if (b) b.classList.toggle('hide'); });
     on('doimport', async () => {
       try {
         await OPS.importKey({ nsec: id('impkey').value });

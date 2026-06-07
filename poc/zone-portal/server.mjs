@@ -300,7 +300,8 @@ const server = http.createServer(async (req, res) => {
   // ----- доступ ПО ИМЕНИ (через прокси) -----
   if (isZone(host)) {
     // плоские .nt + старые *.noet.nt (backward compat)
-    if (host === 'id.nt' || host === ID_NAME) return sendFile(res, join(WEB, 'account.html'));
+    if (host === 'id.nt') return sendFile(res, join(WEB, 'account.html'));
+    if (host === ID_NAME) return sendFile(res, join(WEB, 'migrate.html')); // id.noet.nt → миграция
     if (host === 'relay.nt' || host === RELAY_NAME) return sendFile(res, join(WEB, 'relay.html'));
     if (host === 'create.nt') return sendFile(res, join(WEB, 'account.html'));
     if (host === SEARCH_NAME || host === 'search.nt') return sendFile(res, join(WEB, 'search.html'));
