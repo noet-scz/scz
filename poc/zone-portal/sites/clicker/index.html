@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>noet clicker</title>
+<style>
+  :root{--bg:#0a0a0c;--card:#15151c;--bd:#23232c;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff;--ok:#34d399}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:2.5rem 1.2rem 4rem}
+  h1{font-size:1.6rem;margin:0 0 .3rem;display:flex;align-items:center;gap:.5rem}
+  h1 img{width:30px;height:30px}
+  .who{color:var(--mut);font-size:.85rem;margin-bottom:1.5rem}
+  .big{font-size:4.5rem;font-weight:800;letter-spacing:-1px;margin:.5rem 0}
+  button{border:0;border-radius:14px;cursor:pointer;font-weight:700;font-family:inherit}
+  .tap{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--acc2),var(--acc));color:#fff;font-size:1.3rem;box-shadow:0 14px 50px rgba(124,92,255,.4);transition:transform .06s}
+  .tap:active{transform:scale(.94)}
+  .save{margin-top:1.3rem;background:var(--card);border:1px solid var(--bd);color:var(--fg);padding:.6rem 1.4rem;font-size:.95rem}
+  .save:hover{border-color:var(--acc)}
+  .msg{color:var(--ok);font-size:.85rem;height:1.2rem;margin-top:.5rem}
+  .board{width:100%;max-width:24rem;margin-top:2.5rem}
+  .board h2{font-size:1rem;color:var(--acc2);border-bottom:1px solid var(--bd);padding-bottom:.4rem}
+  .row{display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid #16161d;font-size:.95rem}
+  .row .n{color:var(--mut);font-family:ui-monospace,monospace}
+  .row.me .n{color:var(--acc2)}
+  .row .s{font-weight:700}
+  .hint{color:var(--mut);font-size:.85rem;margin-top:2rem;max-width:24rem;text-align:center}
+  a{color:var(--acc2)}
+</style></head>
+<body>
+  <h1><img src="https://noet-scz.github.io/noet/web/logo.svg" onerror="this.style.display='none'" alt="">noet clicker</h1>
+  <div class="who" id="who">…</div>
+  <div class="big" id="score">0</div>
+  <button class="tap" id="tap">ТАП</button>
+  <button class="save" id="save">Сохранить рекорд</button>
+  <div class="msg" id="msg"></div>
+
+  <div class="board">
+    <h2>Лидерборд</h2>
+    <div id="rows"><div class="row"><span class="n">загрузка…</span></div></div>
+  </div>
+  <div class="hint" id="hint"></div>
+<script>
+const $=s=>document.querySelector(s);
+const D='noet:clicker';           // идентификатор приложения (NIP-78, kind 30078)
+let score=0, myPk=null, profiles={};
+
+$('#tap').onclick=()=>{ score++; $('#score').textContent=score; };
+
+function short(pk){ return pk.slice(0,8)+'…'+pk.slice(-4); }
+function nameOf(pk){ const p=profiles[pk]; return (p&&p.name)?p.name:short(pk); }
+
+async function init(){
+  if(!window.noet){ $('#who').textContent=''; $('#hint').innerHTML='Открой эту страницу через расширение noet, чтобы сохранять рекорд на свой аккаунт. <a href="https://noet-scz.github.io/noet/dist/">Поставить расширение</a>'; return; }
+  try{ const m=await window.noet.me(); myPk=m.pubkey; $('#who').textContent='ты: '+short(myPk); }
+  catch{ $('#who').textContent='нажми «Сохранить», чтобы войти'; }
+  $('#hint').textContent='Счёт сохраняется как подписанное событие Nostr и виден всем. Бэкенда нет.';
+  loadBoard();
+}
+
+$('#save').onclick=async()=>{
+  if(!window.noet){ $('#msg').textContent='нужно расширение noet'; return; }
+  $('#msg').textContent='сохраняю…';
+  try{
+    await window.noet.publish({ kind:30078, tags:[['d',D]], content:JSON.stringify({score, ts:Date.now()}) });
+    $('#msg').textContent='рекорд сохранён ✓';
+    setTimeout(loadBoard, 800);
+  }catch(e){ $('#msg').textContent='ошибка: '+(e.message||e); }
+};
+
+async function loadBoard(){
+  try{
+    const evs=await window.noet.query({ kinds:[30078], '#d':[D], limit:200 });
+    // лучший счёт на автора (события replaceable, но берём максимум на всякий)
+    const best={};
+    for(const ev of evs){ try{ const s=JSON.parse(ev.content).score|0; if(!(ev.pubkey in best)||s>best[ev.pubkey]) best[ev.pubkey]=s; }catch{} }
+    const top=Object.entries(best).sort((a,b)=>b[1]-a[1]).slice(0,15);
+    // подтянуть имена (kind:0)
+    const pks=top.map(t=>t[0]);
+    if(pks.length){ const metas=await window.noet.query({ kinds:[0], authors:pks, limit:200 });
+      for(const m of metas){ if(!profiles[m.pubkey]){ try{ profiles[m.pubkey]=JSON.parse(m.content); }catch{} } } }
+    $('#rows').innerHTML = top.length
+      ? top.map(([pk,s],i)=>`<div class="row${pk===myPk?' me':''}"><span class="n">${i+1}. ${nameOf(pk)}</span><span class="s">${s}</span></div>`).join('')
+      : '<div class="row"><span class="n">пока пусто, будь первым</span></div>';
+  }catch(e){ $('#rows').innerHTML='<div class="row"><span class="n">реле недоступны</span></div>'; }
+}
+init();
+</script></body></html>

@@ -13,7 +13,7 @@ const MAX_EVENTS = 5000;
 const MAX_CONTENT = 8000;
 
 // ---------- хранилище событий ----------
-export function makeRelay({ verify, file }) {
+export function makeRelay({ verify, file, canDelete }) {
   let events = [];           // массив событий по возрастанию created_at
   const byId = new Set();    // дедуп
   const clients = new Set(); // активные сокеты-обёртки
@@ -59,6 +59,11 @@ export function makeRelay({ verify, file }) {
     if (byId.has(ev.id)) return [true, 'duplicate'];
     let ok = false; try { ok = await verify(ev); } catch { ok = false; }
     if (!ok) return [false, 'invalid: signature'];
+    // NIP-09: владелец/модератор (доступ relay.mod) удаляет события (kind 5, e-теги)
+    if (ev.kind === 5 && canDelete && canDelete(ev.pubkey)) {
+      const ids = new Set((ev.tags || []).filter((t) => t[0] === 'e').map((t) => t[1]));
+      if (ids.size) { events = events.filter((e) => !ids.has(e.id)); for (const i of ids) byId.delete(i); }
+    }
     byId.add(ev.id);
     events.push(ev);
     events.sort((a, b) => a.created_at - b.created_at);

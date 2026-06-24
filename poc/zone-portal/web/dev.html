@@ -1,0 +1,117 @@
+<!doctype html><html lang=ru><head>
+<meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Для разработчиков · noet</title>
+<link rel=icon href="/logo.svg"><link rel=stylesheet href="/app.css">
+<style>
+  .wrap{max-width:46rem;margin:0 auto;padding:3rem 1.2rem 5rem}
+  .mark{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
+  .mark img{width:34px;height:34px}.mark h1{font-size:1.7rem;margin:0}
+  .lead{color:var(--mut);margin:0 0 1.6rem}
+  nav.crumbs{font-size:.9rem;margin-bottom:1.6rem}
+  nav.crumbs a{color:var(--acc2);text-decoration:none;margin-right:1rem}
+  h2{font-size:1.15rem;margin:2.2rem 0 .7rem;border-left:3px solid var(--acc);padding-left:.6rem}
+  p,li{color:#c3c3cd;font-size:.95rem;line-height:1.65}
+  pre{background:#101016;border:1px solid var(--bd,#23232c);border-radius:12px;padding:.9rem 1rem;overflow:auto;font-size:.84rem;line-height:1.55;color:#d8d8e2}
+  code{background:#101016;border:1px solid var(--bd,#23232c);border-radius:6px;padding:.08em .4em;font-size:.86em}
+  pre code{background:0;border:0;padding:0}
+  table{border-collapse:collapse;width:100%;font-size:.88rem}
+  td,th{border-bottom:1px solid #1b1b24;padding:.45rem .5rem;text-align:left;color:#c3c3cd}
+  th{color:var(--mut);font-weight:500}
+  td code{white-space:nowrap}
+  a{color:var(--acc2)}
+</style></head><body>
+<div class=wrap>
+  <div class=mark><img src="/logo.svg" alt=""><h1>Для разработчиков</h1></div>
+  <p class=lead>Всё, что нужно, чтобы построить своё на noet: страницы, игры, доски, дашборды. Сервер для этого не нужен.</p>
+  <nav class=crumbs><a href="/">Поиск</a><a href="/people">Люди</a><a href="/id">Аккаунт</a></nav>
+
+  <h2>Конструктор: пять примитивов</h2>
+  <p>На каждой странице, открытой через noet, доступен <code>window.noet</code> — конструктор из
+  пяти примитивов. Из них собирается что угодно (форум, блог, доска, вики, маркет), <b>не меняя
+  ядро</b>. Данные это подписанные события: они принадлежат автору, живут в общей сети и
+  переживают любой отдельный сервер. Версия SDK: <code>noet.version</code>.</p>
+
+  <h3 style="color:var(--acc2);font-size:1rem;margin:1.4rem 0 .4rem">Identity — кто действует</h3>
+  <pre><code>const me = await noet.identity.me();          // { pubkey }
+const profile = await noet.identity.get(pubkey); // { name, picture, about }</code></pre>
+
+  <h3 style="color:var(--acc2);font-size:1rem;margin:1.4rem 0 .4rem">Space — пространство (любой тип)</h3>
+  <pre><code>// type это строка, ядро её не толкует: feed / forum / board / wiki / market / page …
+const space = await noet.space.create({ type: "forum", title: "Мой форум" });
+const s = await noet.space.get(space.coord);
+const mine = await noet.space.list({ owner: me.pubkey });</code></pre>
+
+  <h3 style="color:var(--acc2);font-size:1rem;margin:1.4rem 0 .4rem">Artifact — содержимое</h3>
+  <pre><code>// мелкое (текст/json) = событие; крупное (файл) = CID в IPFS, ссылка в событии
+await noet.artifact.publish({ space, content: "первый пост" });
+await noet.artifact.publish({ key: "score", content: "1240", topic: "my-game" }); // изменяемое
+const feed = await noet.artifact.query({ space });        // лента пространства
+const board = await noet.artifact.query({ topic: "my-game" });</code></pre>
+
+  <h3 style="color:var(--acc2);font-size:1rem;margin:1.4rem 0 .4rem">Relation — связи</h3>
+  <pre><code>await noet.relation.add({ type: "reply", to: postId, toAuthor: pk, content: "ответ" });
+await noet.relation.add({ type: "react", to: postId, content: "🔥" });
+const replies = await noet.relation.query({ to: postId });</code></pre>
+
+  <h3 style="color:var(--acc2);font-size:1rem;margin:1.4rem 0 .4rem">Policy — правила</h3>
+  <pre><code>await noet.policy.set(space, { post: { minRep: 3 }, mods: [pk] });
+const rules = await noet.policy.get(space);
+const ok = await noet.policy.can({ scope: space, action: "post", pubkey: me.pubkey }); // подсказка UI</code></pre>
+
+  <h3 style="color:var(--acc2);font-size:1rem;margin:1.4rem 0 .4rem">Низкий уровень (если нужно своё)</h3>
+  <pre><code>await noet.publish({ kind: 1, tags: [], content: "привет" }); // подписать + разослать в реле
+const events = await noet.query({ kinds: [1], authors: [pk] });</code></pre>
+
+  <h2>Готовые шаблоны (форк и деплой)</h2>
+  <p>Разные продукты на ОДНИХ примитивах — ядро не меняется, меняется только разметка
+  снаружи. Открой исходник, скачай папку, задеплой через аккаунт под своим поддоменом
+  (напр. <code>forum.твойтег.me</code>), при желании задай тему в <code>noet.env.json</code>
+  (<code>{"APP":"моё-имя"}</code>). Это и есть смысл noet: ты строишь своё.</p>
+  <table>
+    <tr><th>Шаблон</th><th>Примитивы</th><th>Исходник</th></tr>
+    <tr><td>Гостевая книга</td><td>Space feed + Artifact + Relation</td><td><a href="https://noet-scz.github.io/noet/sites/guestbook/" target=_blank>открыть</a></td></tr>
+    <tr><td>Форум</td><td>темы (Artifact) + ответы (Relation reply)</td><td><a href="https://noet-scz.github.io/noet/sites/forum/" target=_blank>открыть</a></td></tr>
+    <tr><td>Блог</td><td>статьи (Artifact, лонгрид 30023)</td><td><a href="https://noet-scz.github.io/noet/sites/blog/" target=_blank>открыть</a></td></tr>
+    <tr><td>Объявления / маркет</td><td>лоты (Artifact) + отзывы (Relation)</td><td><a href="https://noet-scz.github.io/noet/sites/market/" target=_blank>открыть</a></td></tr>
+    <tr><td>Вики</td><td>страницы по ключу (Artifact 30078, версии) + [[ссылки]]</td><td><a href="https://noet-scz.github.io/noet/sites/wiki/" target=_blank>открыть</a></td></tr>
+    <tr><td>Дашборд / Игра</td><td>события + аналитика (Artifact)</td><td><a href="https://noet-scz.github.io/noet/sites/dashboard/" target=_blank>дашборд</a> · <a href="https://noet-scz.github.io/noet/sites/clicker/" target=_blank>кликер</a></td></tr>
+  </table>
+  <p class="mut" style="font-size:.9rem">Поменяй разметку форума — получится Q&amp;A или баг-трекер.
+  Добавь к блогу комментарии (Relation) — выйдет медиа. Ни одна правка не трогает ядро noet.</p>
+
+  <h2>window.nostr — подпись (NIP-07)</h2>
+  <p>Стандартный интерфейс подписи. Ключ живёт в расширении и не попадает на страницу.</p>
+  <pre><code>const pk = await window.nostr.getPublicKey();
+const signed = await window.nostr.signEvent({ kind: 1, tags: [], content: "привет" });</code></pre>
+
+  <h2>Аналитика в одну строку</h2>
+  <p>Подключи снипет, и события посещений попадут в твой дашборд (кнопка «Создать дашборд» в аккаунте).</p>
+  <pre><code>&lt;script src="https://noet-scz.github.io/noet/dist/noet-analytics.js" data-app="ТВОЙ_ТЕГ" data-auto&gt;&lt;/script&gt;
+// или вручную: noetTrack("click", { button: "play" })</code></pre>
+
+  <h2>HTTP API реестра</h2>
+  <table>
+    <tr><th>Что</th><th>Запрос</th></tr>
+    <tr><td>Все имена</td><td><code>GET /api/names</code></td></tr>
+    <tr><td>Имя → CID</td><td><code>GET /api/resolve/&lt;имя&gt;</code></td></tr>
+    <tr><td>Поиск</td><td><code>GET /api/search?q=</code></td></tr>
+    <tr><td>Участники + репутация</td><td><code>GET /api/people</code></td></tr>
+    <tr><td>Доступы и правила</td><td><code>GET /api/gov</code></td></tr>
+    <tr><td>Полная копия (форк)</td><td><code>GET /api/export</code></td></tr>
+    <tr><td>Кто я</td><td><code>GET /api/me</code> + <code>Authorization: Bearer &lt;токен&gt;</code></td></tr>
+    <tr><td>Опубликовать страницу</td><td><code>POST /api/publish</code> { title, body } или { mode:"html", body }</td></tr>
+    <tr><td>Задеплоить проект</td><td><code>POST /api/publish-dir</code> { sub, files:[{path, data(base64)}] }</td></tr>
+    <tr><td>Поручиться</td><td><code>POST /api/vouch</code> { event: kind 8001, p=за кого } (8002 = отозвать)</td></tr>
+    <tr><td>Дать доступ</td><td><code>POST /api/delegate</code> { event: kind 8010, p=кому, scope, until?, redelegate? }</td></tr>
+    <tr><td>Отозвать доступ</td><td><code>POST /api/revoke</code> { event: kind 8011, e=id доступа }</td></tr>
+    <tr><td>Создать инвайт</td><td><code>POST /api/invite</code> { event: kind 8020 } (нужен доступ «инвайты»)</td></tr>
+    <tr><td>Обновить страницу зоны</td><td><code>POST /api/publish-zone</code> { name, body } (нужен доступ к имени)</td></tr>
+  </table>
+  <p>События управления (8001–8020) это обычные подписанные Nostr-события. Реестр проверяет подпись и право, всё хранится открыто и попадает в <code>/api/export</code>.</p>
+
+  <h2>Свой экземпляр</h2>
+  <p>Весь код открыт: <a href="https://github.com/noet-scz/noet" target=_blank>github.com/noet-scz/noet</a>. Скачай <a href="/api/export">копию состояния</a>, подними свой реестр, и у тебя свой noet. Первый участник нового экземпляра автоматически его владелец.</p>
+</div>
+<script src="/i18n.js"></script>
+<script src="/widget.js"></script>
+</body></html>

@@ -1,12 +1,12 @@
-// noet — виджет личности. Инжектится на каждую страницу зоны.
+// noet — виджет личности. Инжектится на каждую страницу.
 // Чип (фикс. правый верх): аватар+ник или «Войти». Клик → меню.
-// Прямые API-вызовы без iframe (работает на любом домене зоны).
+// Прямые API-вызовы без iframe (работает на любом домене noet).
 // Popup-логин: открывает id.nt, получает токен и ключ через postMessage.
 (function () {
   if (window.__noetWidget) return; window.__noetWidget = true;
   const ID_ORIGIN = 'http://id.nt';
-  const TOKEN_KEY = 'noet_local_token';
-  const NSEC_KEY  = 'noet_local_nsec';
+  const TOKEN_KEY = 'noet_token';   // те же ключи, что в account.js: всё на одном origin реестра
+  const NSEC_KEY  = 'noet_sk';
   const PROF_KEY  = 'noet_profile';
   const LAST_KEY  = 'noet_lastwho';
   const T = (k) => (window.t ? window.t(k) : { guest:'Гость', login:'Войти', logout:'Выйти', account:'Аккаунт', search_nav:'Поиск', relay_nav:'Реле', hide:'Спрятать', edit_page:'Редактировать' }[k] || k);
@@ -25,14 +25,14 @@
   /* ---- прямые вызовы ---- */
   async function directWhoami() {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return { loggedIn: false, hasKey: !!localStorage.getItem(NSEC_KEY) };
+    if (!token) return { loggedIn: false, hasKey: !!window.nostr || !!localStorage.getItem(NSEC_KEY) };
     try {
       const r = await fetch('/api/me', { headers: { authorization: 'Bearer ' + token } });
-      if (!r.ok) { localStorage.removeItem(TOKEN_KEY); return { loggedIn: false, hasKey: !!localStorage.getItem(NSEC_KEY) }; }
+      if (!r.ok) { localStorage.removeItem(TOKEN_KEY); return { loggedIn: false, hasKey: !!window.nostr || !!localStorage.getItem(NSEC_KEY) }; }
       const m = await r.json();
       let profile = null; try { profile = JSON.parse(localStorage.getItem(PROF_KEY) || 'null'); } catch {}
       return { loggedIn: true, pubkey: m.pubkey, handle: m.handle, profile, hasKey: true };
-    } catch { return { loggedIn: false, hasKey: !!localStorage.getItem(NSEC_KEY) }; }
+    } catch { return { loggedIn: false, hasKey: !!window.nostr || !!localStorage.getItem(NSEC_KEY) }; }
   }
 
   async function localSign(event) {
@@ -51,8 +51,8 @@
   const changeCbs = new Set();
   let _popup = null;
   function openLoginPopup() {
-    if (_popup && !_popup.closed) { try { _popup.focus(); } catch {} return; }
-    _popup = window.open(ID_ORIGIN + '/?popup=1', 'noet-login');
+    // всё на одном origin реестра → popup не нужен, просто идём на страницу входа
+    location.href = '/id';
   }
   window.addEventListener('message', (e) => {
     if (e.origin !== ID_ORIGIN) return;
@@ -78,7 +78,12 @@
 
   const Noet = window.Noet = {
     whoami: directWhoami,
-    signEvent: ({ event }) => localSign(event),
+    signEvent: async ({ event }) => {
+      // расширение (window.nostr) приоритетно, но если в нём нет ключа/ошибка —
+      // падаем на локальный ключ, чтобы вход старым ключом продолжал работать
+      if (window.nostr) { try { return await window.nostr.signEvent(event); } catch (e) { if (!localStorage.getItem(NSEC_KEY)) throw e; } }
+      return localSign(event);
+    },
     logout: () => {
       localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(NSEC_KEY); localStorage.removeItem(PROF_KEY);
       refresh(); changeCbs.forEach(cb => { try { cb(); } catch {} });
@@ -144,9 +149,9 @@
   }
   function renderMenu() {
     const m = state.me || {};
-    let html = `<a href="http://noet.nt/">⌕ ${T('search_nav')}</a><a href="http://relay.nt/">◇ ${T('relay_nav')}</a><a href="http://id.nt/">○ ${T('account')}</a><div class=sep></div>`;
+    let html = `<a href="/">⌕ ${T('search_nav')}</a><a href="/relay">◇ ${T('relay_nav')}</a><a href="/people">⚯ ${T('people_nav')}</a><a href="/id">○ ${T('account')}</a><div class=sep></div>`;
     if (m.loggedIn) {
-      html += `<a href="http://id.nt/">✎ ${T('edit_page')}</a><div class=sep></div><button id=logout>⏻ ${T('logout')}</button>`;
+      html += `<button id=logout>⏻ ${T('logout')}</button>`;
     } else {
       html += `<button id=loginbtn>→ ${T('login')}</button>`;
     }

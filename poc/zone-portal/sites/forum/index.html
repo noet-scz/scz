@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Форум</title>
+<!--
+  noet — шаблон ФОРУМ. Целиком из примитивов window.noet, без сервера, без правок ядра.
+    Space    — доска (тема forum:<app>)
+    Artifact — темы (noet.artifact.publish с тегом subject)
+    Relation — ответы в теме (noet.relation.add type:reply)
+    Identity — кто пишет
+  Тот же граф, что у гостевой книги, но прочитан как «темы → ответы». Поменяй разметку —
+  получится Q&A или баг-трекер. Ядро не трогается.
+-->
+<style>
+  :root{--bg:#0d0d12;--card:#16161e;--bd:#262630;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}body{font:16px/1.6 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);margin:0}
+  main{max-width:44rem;margin:0 auto;padding:2rem 1.1rem 5rem}
+  h1{font-size:1.6rem;margin:0 0 .1em}.sub{color:var(--mut);margin:0 0 1.4rem;font-size:.92rem}
+  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:.9rem 1rem;margin-bottom:.7rem}
+  input,textarea{width:100%;background:#0f0f15;border:1px solid var(--bd);color:var(--fg);border-radius:10px;padding:.55rem .7rem;font:inherit;margin-bottom:.5rem}
+  textarea{resize:vertical;min-height:3rem}
+  button{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:.55rem 1.1rem;font:inherit;cursor:pointer}
+  button:hover{background:#6c4dff}
+  button.ghost{background:transparent;border:1px solid var(--bd);color:var(--mut);padding:.35rem .8rem;font-size:.86rem}
+  button.ghost:hover{border-color:var(--acc);color:var(--fg)}
+  .thread{cursor:pointer}
+  .thread:hover{border-color:var(--acc)}
+  .thread .subj{font-weight:600;font-size:1.05rem}
+  .meta{color:var(--mut);font-size:.8rem;margin-top:.2rem}
+  .post .who{color:var(--acc2);font-weight:600;font-size:.9rem}
+  .post .when{color:var(--mut);font-size:.78rem;margin-left:.5rem}
+  .post .txt{white-space:pre-wrap;word-break:break-word;margin:.3rem 0}
+  .row{display:flex;gap:.5rem;align-items:center}
+  .bar{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem}
+  .msg{font-size:.85rem;min-height:1.1em}.msg.err{color:#ff7b8a}.msg.ok{color:#34d399}
+  .mut{color:var(--mut)}a{color:var(--acc2)}
+  .foot{margin-top:2.5rem;color:var(--mut);font-size:.82rem}
+  .nt-top{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:.6rem;padding:.5rem .9rem;background:#0f0f15;border-bottom:1px solid var(--bd);font:600 14px/1 system-ui,sans-serif}
+  .nt-top a{color:var(--mut);text-decoration:none;padding:.25rem .45rem;border-radius:8px;white-space:nowrap;cursor:pointer}
+  .nt-top a:hover{color:var(--fg);background:#1c1c25}
+  .nt-top .nt-home{color:var(--acc2)}
+  .nt-top .nt-name{color:var(--fg);flex:1;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body>
+<header class="nt-top">
+  <a class="nt-home" href="http://noet.nt/" title="noet">◐ noet</a>
+  <span class="nt-name">Форум</span>
+  <a class="nt-back" href="http://noet.nt/">← Назад</a>
+</header>
+<script>
+(function(){
+  function go(u){ try{ if(window.noet&&window.noet.go){ window.noet.go(u); return; } }catch(e){} location.href=u; }
+  var hm=document.querySelector('.nt-home'), bk=document.querySelector('.nt-back');
+  if(hm) hm.addEventListener('click',function(e){ e.preventDefault(); go('http://noet.nt/'); });
+  if(bk) bk.addEventListener('click',function(e){ e.preventDefault(); if(history.length>1){ history.back(); } else { go('http://noet.nt/'); } });
+})();
+</script>
+<main>
+  <div id="app"><div class="mut">загружаю…</div></div>
+  <div class="foot"><a href="http://noet.nt/">noet</a></div>
+</main>
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); };
+  var app = document.getElementById('app');
+  var names = {};
+  var TOPIC, all = [], roots = [], childOf = {}, meKey = null;
+
+  function when(ts) { var d = new Date(ts * 1000); return d.toLocaleDateString('ru') + ' ' + d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }); }
+  function subjOf(ev) { var t = (ev.tags || []).find(function (x) { return x[0] === 'subject'; }); return t ? t[1] : (ev.content || '').slice(0, 60); }
+  async function who(pk) { if (names[pk]) return names[pk]; names[pk] = pk.slice(0, 8) + '…'; try { var p = await window.noet.identity.get(pk); if (p && p.name) names[pk] = p.name; } catch (e) {} return names[pk]; }
+  function errText(e) { var s = (e && e.message) || ''; return /нет ключа|не активно|getPublicKey/i.test(s) ? 'Нужна личность: создай её в расширении noet.' : (s || 'не получилось'); }
+  function setMsg(el, t, c) { if (el) { el.textContent = t || ''; el.className = 'msg ' + (c || ''); } }
+
+  async function load() {
+    try { meKey = (await window.noet.identity.me()).pubkey; } catch (e) { meKey = null; }
+    all = await window.noet.artifact.query({ topic: TOPIC, kinds: [1], limit: 500 });
+    roots = []; childOf = {};
+    all.forEach(function (ev) {
+      var e = (ev.tags || []).find(function (t) { return t[0] === 'e'; });
+      if (e) (childOf[e[1]] = childOf[e[1]] || []).push(ev); else roots.push(ev);
+    });
+    roots.sort(function (a, b) { return lastTs(b) - lastTs(a); });
+    route();
+  }
+  function lastTs(root) { var k = childOf[root.id] || []; return k.length ? Math.max(root.created_at, k[k.length - 1].created_at) : root.created_at; }
+
+  function route() {
+    var id = (location.hash.match(/thread=([a-f0-9]+)/) || [])[1];
+    if (id) { var r = roots.find(function (x) { return x.id === id; }); if (r) return viewThread(r); }
+    viewList();
+  }
+
+  async function viewList() {
+    var rows = '';
+    for (var i = 0; i < roots.length; i++) {
+      var r = roots[i], n = (childOf[r.id] || []).length;
+      rows += '<div class="box thread" data-id="' + esc(r.id) + '"><div class="subj">' + esc(subjOf(r)) + '</div>' +
+        '<div class="meta">@' + esc(await who(r.pubkey)) + ' · ' + n + ' ' + plural(n) + ' · ' + when(lastTs(r)) + '</div></div>';
+    }
+    app.innerHTML = '<h1>Форум</h1><p class="sub">Темы и ответы. Каждая запись подписана ключом автора и живёт в сети, а не на сервере.</p>' +
+      '<div class="box"><input id="subj" placeholder="заголовок новой темы"><textarea id="body" placeholder="первое сообщение…"></textarea>' +
+      '<div class="row"><button id="new">Создать тему</button><span class="msg" id="msg" style="margin-left:.6rem"></span></div></div>' +
+      (rows || '<div class="mut">Пока нет тем. Создай первую.</div>');
+    $('#new').onclick = async function () {
+      var s = ($('#subj').value || '').trim(), b = ($('#body').value || '').trim();
+      if (!s) { setMsg($('#msg'), 'Нужен заголовок.', 'err'); return; }
+      setMsg($('#msg'), '…');
+      try {
+        // Artifact: тема = запись с тегом subject в ленте доски
+        await window.noet.artifact.publish({ topic: TOPIC, content: b, tags: [['subject', s]] });
+        $('#subj').value = ''; $('#body').value = ''; await load();
+      } catch (e) { setMsg($('#msg'), errText(e), 'err'); }
+    };
+    document.querySelectorAll('.thread').forEach(function (el) { el.onclick = function () { location.hash = 'thread=' + el.dataset.id; }; });
+  }
+  function plural(n) { var a = n % 10, b = n % 100; return (a === 1 && b !== 11) ? 'ответ' : (a >= 2 && a <= 4 && (b < 10 || b >= 20)) ? 'ответа' : 'ответов'; }
+
+  async function viewThread(root) {
+    var kids = (childOf[root.id] || []).slice().sort(function (a, b) { return a.created_at - b.created_at; });
+    function post(ev) { return who(ev.pubkey).then(function (nm) {
+      return '<div class="post box"><div><span class="who">@' + esc(nm) + '</span><span class="when">' + when(ev.created_at) + '</span></div><div class="txt">' + esc(ev.content) + '</div></div>';
+    }); }
+    var head = '<div class="bar"><button class="ghost" id="back">← все темы</button></div><h1>' + esc(subjOf(root)) + '</h1>';
+    var blocks = [await post(root)];
+    for (var i = 0; i < kids.length; i++) blocks.push(await post(kids[i]));
+    app.innerHTML = head + blocks.join('') +
+      '<div class="box"><textarea id="rtext" placeholder="ответить в теме…"></textarea><div class="row"><button id="rsend">Ответить</button><span class="msg" id="rmsg" style="margin-left:.6rem"></span></div></div>';
+    $('#back').onclick = function () { location.hash = ''; };
+    $('#rsend').onclick = async function () {
+      var txt = ($('#rtext').value || '').trim(); if (!txt) return;
+      setMsg($('#rmsg'), '…');
+      try {
+        // Relation: ответ в теме (e-теги NIP-10), и тег доски, чтобы попал в ленту
+        await window.noet.relation.add({ type: 'reply', to: root.id, toAuthor: root.pubkey, topic: TOPIC, content: txt });
+        await load();
+      } catch (e) { setMsg($('#rmsg'), errText(e), 'err'); }
+    };
+  }
+
+  function boot(appId) {
+    if (!window.noet || !window.noet.artifact) {
+      app.innerHTML = '<h1>Форум</h1><div class="mut">Открой через noet (расширение), чтобы появились темы. <a href="http://dev.nt/">что это</a></div>';
+      return;
+    }
+    TOPIC = 'forum:' + (appId || new URLSearchParams(location.search).get('app') || 'demo');
+    window.addEventListener('hashchange', route);
+    load();
+  }
+  fetch('noet.env.json').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; })
+    .then(function (env) { boot(env && env.APP); });
+})();
+</script></body></html>

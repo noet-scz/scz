@@ -1,0 +1,280 @@
+<!doctype html><html lang=ru><head>
+<meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Люди · noet</title>
+<link rel=icon href="/logo.svg"><link rel=stylesheet href="/app.css">
+<style>
+  .wrap{max-width:46rem;margin:0 auto;padding:3rem 1.2rem 5rem}
+  .mark{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem}
+  .mark img{width:34px;height:34px}.mark h1{font-size:1.7rem;margin:0}
+  .lead{color:var(--mut);margin:0 0 1.6rem}
+  nav.crumbs{font-size:.9rem;margin-bottom:1.6rem}
+  nav.crumbs a{color:var(--acc2);text-decoration:none;margin-right:1rem}
+  h2{font-size:1.15rem;margin:2.2rem 0 .7rem;border-left:3px solid var(--acc);padding-left:.6rem}
+  .card{background:var(--panel,#15151c);border:1px solid var(--bd,#23232c);border-radius:14px;padding:1rem 1.1rem;margin-bottom:.7rem}
+  .prow{display:flex;align-items:flex-start;gap:.8rem}
+  .pav{width:42px;height:42px;border-radius:50%;flex:0 0 42px;object-fit:cover}
+  .pname{font-weight:600}.pname a{color:var(--fg);text-decoration:none}
+  .pname .own{font-size:.72rem;color:#0a0a0c;background:var(--acc2,#9d8bff);border-radius:999px;padding:.12em .6em;margin-left:.5em;vertical-align:middle}
+  .psub{color:var(--mut);font-size:.83rem;margin-top:.1rem}
+  .rep{margin-left:auto;text-align:right;flex:0 0 auto}
+  .rep b{font-size:1.25rem;color:var(--acc2)}
+  .rep .lbl{display:block;color:var(--mut);font-size:.72rem}
+  .chips{margin-top:.45rem;display:flex;gap:.35rem;flex-wrap:wrap}
+  .chip{font-size:.76rem;color:var(--mut);border:1px solid var(--bd,#23232c);border-radius:999px;padding:.12em .65em}
+  .chip.acc{color:var(--acc2);border-color:var(--acc)}
+  .sites a{color:var(--acc2);font-size:.83rem;margin-right:.7rem}
+  .acts{margin-top:.55rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  button.b{background:var(--acc);border:0;color:#fff;border-radius:9px;padding:.42rem .9rem;cursor:pointer;font-size:.86rem}
+  button.b:hover{background:#6c4dff}
+  button.g{background:transparent;border:1px solid var(--bd,#2a2a36);color:var(--mut);border-radius:9px;padding:.4rem .9rem;cursor:pointer;font-size:.86rem}
+  button.g:hover{border-color:var(--acc);color:var(--fg)}
+  details.brk{margin-top:.4rem}
+  details.brk summary{cursor:pointer;color:var(--mut);font-size:.8rem}
+  details.brk div{color:var(--mut);font-size:.82rem;margin-top:.3rem;line-height:1.55}
+  .mut{color:var(--mut)}
+  .msg{font-size:.85rem;margin-top:.4rem}.msg.ok{color:#34d399}.msg.err{color:#ff7b8a}
+  .dlg{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.6rem}
+  .dlg select,.dlg input{background:#0f0f15;border:1px solid var(--bd,#2a2a36);color:var(--fg);border-radius:9px;padding:.42rem .6rem;font-size:.86rem}
+  .dlg label{font-size:.82rem;color:var(--mut);display:flex;align-items:center;gap:.35rem}
+  .drow{display:flex;align-items:center;gap:.6rem;padding:.45rem 0;border-bottom:1px solid #16161d;font-size:.9rem;flex-wrap:wrap}
+  .drow:last-child{border-bottom:0}
+  .drow .scope{color:var(--acc2)}
+  code{background:#101016;border:1px solid var(--bd,#23232c);border-radius:6px;padding:.08em .4em;font-size:.85em}
+  .rules p{margin:.35rem 0;color:#c3c3cd;font-size:.92rem}
+  .rules b{color:var(--fg)}
+  footer{margin-top:3rem;color:var(--mut);font-size:.85rem;border-top:1px solid var(--bd,#23232c);padding-top:1rem}
+  footer a{color:var(--acc2)}
+</style></head><body>
+<div class=wrap>
+  <div class=mark><img src="/logo.svg" alt=""><h1>Люди</h1></div>
+  <p class=lead>noet принадлежит участникам. Здесь видно всё: кто есть, у кого какая репутация, у кого какой доступ и кто держит этот экземпляр.</p>
+  <nav class=crumbs><a href="/">Поиск</a><a href="/relay">Реле</a><a href="/id">Аккаунт</a><a href="/dev">Для разработчиков</a></nav>
+
+  <div id=mybar></div>
+  <div id=list><div class=mut>загружаю…</div></div>
+
+  <h2>Доступы</h2>
+  <p class=mut style="font-size:.9rem">Доступ это узкое право: выдавать инвайты, наводить порядок в реле, обновлять общую страницу. Его можно дать, передать дальше и отозвать. Каждый доступ виден всем.</p>
+  <div class=card id=dlist><div class=mut>…</div></div>
+  <div class=card id=dform hidden>
+    <b style="font-size:.95rem">Дать доступ</b>
+    <div class=dlg>
+      <select id=d_to></select>
+      <select id=d_scope>
+        <option value="invite">приглашать новых (инвайты)</option>
+        <option value="relay.mod">порядок в реле</option>
+        <option value="zone:manifest.nt">страница manifest.nt</option>
+      </select>
+      <input id=d_days type=number min=0 placeholder="дней (пусто = без срока)" style="width:11.5rem">
+      <label><input type=checkbox id=d_redel> можно передавать дальше</label>
+      <button class=b id=d_give>Дать</button>
+    </div>
+    <div class=msg id=dmsg></div>
+  </div>
+  <div class=card id=invcard hidden>
+    <b style="font-size:.95rem">Инвайты</b>
+    <div class=acts><button class=b id=mkinv>Создать инвайт</button><span class=mut style="font-size:.85rem">одноразовый код для нового участника</span></div>
+    <div class=msg id=invmsg></div>
+  </div>
+
+  <h2>Как растёт репутация</h2>
+  <div class="card rules">
+    <p><b>Даётся за:</b> живые страницы и проекты (не пустышки), стаж с активностью, поручительства других участников. Чем выше репутация поручителя, тем больше весит его слово.</p>
+    <p><b>Снимается за:</b> долгое молчание (репутация затухает), отозванные поручительства.</p>
+    <p><b>Что открывает:</b> больше места под проекты, больше поддоменов, право ручаться за других (с 5) и получать доступ (с 3).</p>
+    <p><b>Чего не даёт:</b> власти над правилами. Репутация это ёмкость, а не голос. Расчёт открыт: нажми «откуда» у любого участника, формула в коде.</p>
+  </div>
+
+  <h2>Где живут данные</h2>
+  <div class="card rules">
+    <p><b>Личность и связи</b> (профиль, поручительства, доступы) привязаны к твоему ключу и доступны везде, а не заперты на этом узле. Этот узел только показывает их, а не владеет ими.</p>
+    <p><b>Страницы</b> опознаются по самому содержимому и не привязаны к одному месту. Пока их кто-то хранит, открываются у всех.</p>
+    <p><b>Кто хранит сейчас:</b> узел этого сообщества держит страницы участников. Честно: для настоящей несокрушимости нужно, чтобы их держал не один узел, а сами участники. Это следующий шаг. Пока то, что держит один узел, живёт, пока он жив.</p>
+  </div>
+
+  <h2>Забрать всё с собой</h2>
+  <div class=card>
+    <p style="margin:.2rem 0 .6rem;color:#c3c3cd;font-size:.92rem">Главная защита от любого захвата: полная копия всего (имена, участники, поручительства, доступы) доступна каждому. Несогласный уходит с копией и поднимает своё. Личность и страницы при этом не пересоздаются: они привязаны к твоему ключу и уже доступны везде. Код открыт.</p>
+    <div class=acts><a href="/api/export" download="noet-export.json"><button class=b>Скачать копию</button></a>
+    <a href="https://github.com/noet-scz/noet" target=_blank><button class=g>Код на GitHub</button></a></div>
+  </div>
+
+  <footer>Этот экземпляр noet держит <a id=ownlink href="#">владелец</a>. Это сказано прямо, а не спрятано: его машина хранит имена и реле. Не нравится, как он рулит? Скачай копию и подними свой.</footer>
+</div>
+<script src="/i18n.js"></script>
+<script src="/widget.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const SCOPE_RU = { invite: 'инвайты', 'relay.mod': 'порядок в реле' };
+const scopeName = (s) => SCOPE_RU[s] || (s.startsWith('zone:') ? 'страница ' + s.slice(5) : s);
+let DATA = null, GOV = null, ME = null, PROFILES = {};
+
+async function load() {
+  const [p, g, me] = await Promise.all([
+    fetch('/api/people').then((r) => r.json()),
+    fetch('/api/gov').then((r) => r.json()),
+    (async () => { const t = localStorage.getItem('noet_token'); if (!t) return null;
+      try { const r = await fetch('/api/me', { headers: { authorization: 'Bearer ' + t } }); return r.ok ? await r.json() : null; } catch { return null; } })(),
+  ]);
+  DATA = p; GOV = g; ME = me;
+  render();
+  // P2: имена/аватары участников берём с публичных реле (kind 0) — личность читается из
+  // событий, а не из реестра. Фоном, потом перерисовка. Доказывает «реестр это индекс».
+  relayProfiles((DATA.people || []).map((x) => x.pubkey)).then((pr) => { PROFILES = pr; render(); }).catch(() => {});
+}
+
+// профили (kind 0) участников с публичных реле, последний по времени
+function relayProfiles(pubkeys) {
+  return new Promise((resolve) => {
+    const out = {}; if (!pubkeys.length) return resolve(out);
+    let socks; try { socks = PUB_RELAYS.map((u) => new WebSocket(u)); } catch (e) { return resolve(out); }
+    let closed = 0;
+    const fin = () => { try { socks.forEach((w) => w.close()); } catch (e) {} resolve(out); };
+    const t = setTimeout(fin, 3500);
+    socks.forEach((ws) => {
+      ws.onopen = () => { try { ws.send(JSON.stringify(['REQ', 'pr', { kinds: [0], authors: pubkeys, limit: pubkeys.length * 3 }])); } catch (e) {} };
+      ws.onmessage = (m) => { try { const a = JSON.parse(m.data); if (a[0] === 'EVENT' && a[2] && a[2].kind === 0) { const ev = a[2]; if (!out[ev.pubkey] || ev.created_at > out[ev.pubkey]._ts) { try { const pr = JSON.parse(ev.content); pr._ts = ev.created_at; out[ev.pubkey] = pr; } catch (e) {} } } else if (a[0] === 'EOSE') { ws.close(); if (++closed >= socks.length) { clearTimeout(t); fin(); } } } catch (e) {} };
+      ws.onerror = () => { if (++closed >= socks.length) { clearTimeout(t); fin(); } };
+    });
+  });
+}
+
+function myVouchFor(pk) { return ME && (GOV.vouches || []).some((v) => v.from_pk === ME.pubkey && v.to_pk === pk); }
+
+function render() {
+  const own = DATA.owner || {};
+  $('#ownlink').textContent = own.handle ? '@' + own.handle : 'владелец';
+  if (own.handle) $('#ownlink').href = 'http://' + own.handle + '.me/';
+
+  // моя строка-сводка
+  if (ME) {
+    $('#mybar').innerHTML = '<div class=card><div class=prow><div><div class=pname>@' + esc(ME.handle) + '</div>' +
+      '<div class=psub>моя репутация: <b style="color:var(--acc2)">' + esc(ME.rep) + '</b>' +
+      (ME.isOwner ? ' · владелец этого noet' : '') +
+      ((ME.access || []).length ? ' · доступ: ' + ME.access.map(scopeName).map(esc).join(', ') : '') +
+      (ME.capacity && ME.capacity.quotaMB != null ? ' · место: ' + ME.capacity.quotaMB + ' МБ · поддоменов: ' + ME.capacity.maxSubs : ' · без лимитов') +
+      '</div></div></div></div>';
+  } else {
+    $('#mybar').innerHTML = '<div class=card><span class=mut>Войди, чтобы ручаться за людей и видеть свой доступ.</span></div>';
+  }
+
+  // участники
+  $('#list').innerHTML = (DATA.people || []).map((m) => {
+    const rep = m.rep || { score: 0, vouches: [] };
+    const brk = 'базово 1' + (rep.tenure ? ' · стаж +' + rep.tenure : '') + (rep.sites ? ' · сайты +' + rep.sites : '') +
+      (rep.vouches || []).map((v) => ' · @' + v.from + ' +' + v.weight).join('') + (rep.idle ? ' · давно молчит, поделено на 2' : '');
+    const mine = ME && ME.pubkey === m.pubkey;
+    const vouched = myVouchFor(m.pubkey);
+    const canAct = ME && !mine;
+    const prof = PROFILES[m.pubkey] || null;           // профиль с публичных реле (kind 0)
+    const dname = (prof && prof.name) || m.handle;
+    return '<div class=card><div class=prow>' +
+      '<img class=pav src="' + window.Noet.avatar(m.pubkey, dname, prof) + '">' +
+      '<div style="min-width:0"><div class=pname><a href="http://' + esc(m.handle) + '.me/">' + (prof && prof.name ? esc(prof.name) + ' <span class=mut style="font-weight:400;font-size:.85rem">@' + esc(m.handle) + '</span>' : '@' + esc(m.handle)) + '</a>' +
+      (m.isOwner ? '<span class=own>владелец</span>' : '') + '</div>' +
+      '<div class=psub>в noet с ' + new Date(m.since).toLocaleDateString('ru') + '</div>' +
+      ((m.access || []).length ? '<div class=chips>' + m.access.map((s) => '<span class="chip acc">' + esc(scopeName(s)) + '</span>').join('') + '</div>' : '') +
+      ((m.sites || []).length ? '<div class="chips sites">' + m.sites.map((n) => '<a href="http://' + esc(n) + '/">' + esc(n) + '</a>').join('') + '</div>' : '') +
+      '<details class=brk><summary>репутация: откуда</summary><div>' + esc(brk) + '</div></details>' +
+      (canAct ? '<div class=acts>' +
+        (vouched ? '<button class=g data-unvouch="' + m.pubkey + '">Отозвать поручительство</button>'
+                 : '<button class=b data-vouch="' + m.pubkey + '">Поручиться</button>') +
+        '<span class=msg data-vmsg="' + m.pubkey + '"></span></div>' : '') +
+      '</div>' +
+      '<div class=rep><b>' + esc(rep.score) + '</b><span class=lbl>репутация</span></div>' +
+      '</div></div>';
+  }).join('') || '<div class=mut>пока никого</div>';
+
+  // доступы: список
+  const ds = GOV.delegations || [];
+  $('#dlist').innerHTML = ds.length ? ds.map((d) =>
+    '<div class=drow><span>@' + esc(d.from) + ' → @' + esc(d.to) + '</span>' +
+    '<span class=scope>' + esc(scopeName(d.scope)) + '</span>' +
+    (d.until ? '<span class=mut>до ' + new Date(d.until * 1000).toLocaleDateString('ru') + '</span>' : '') +
+    (d.redelegate ? '<span class=mut>можно передавать</span>' : '') +
+    (ME && (ME.pubkey === d.from_pk || ME.isOwner) ? '<button class=g data-revoke="' + d.id + '" style="margin-left:auto">Отозвать</button>' : '') +
+    '</div>').join('')
+    : '<span class=mut>Доступов пока никому не выдано. Все решения за владельцем, и это видно здесь.</span>';
+
+  // форма выдачи: владелец или держатель права передачи (сервер всё равно проверит)
+  const others = ME ? (DATA.people || []).filter((m) => m.pubkey !== ME.pubkey) : [];
+  const canGive = ME && (ME.isOwner || (ME.access || []).length);
+  $('#dform').hidden = !canGive;
+  if (canGive) {
+    if (others.length) {
+      $('#d_to').innerHTML = others.map((m) => '<option value="' + esc(m.pubkey) + '">@' + esc(m.handle) + '</option>').join('');
+    } else {
+      $('#dform').querySelector('.dlg').innerHTML = '<span class=mut style="font-size:.88rem">Пока некому: ты здесь один. Создай инвайт ниже и позови людей.</span>';
+    }
+  }
+  $('#invcard').hidden = !(ME && (ME.isOwner || (ME.access || []).includes('invite')));
+
+  wire();
+}
+
+async function signed(kind, tags) {
+  return await window.Noet.signEvent({ event: { kind, tags, content: '', created_at: Math.floor(Date.now() / 1000) } });
+}
+// P2: события личности/политики (поручительства 8001/8002, доступы 8010/8011) дублируем
+// на публичные реле. Тогда другой экземпляр видит репутацию и доступы БЕЗ нашего сервера:
+// истина в подписанных событиях, реестр лишь индекс. Дозапись, не замена.
+const PUB_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
+function broadcastToRelays(ev) {
+  try {
+    const msg = JSON.stringify(['EVENT', ev]);
+    PUB_RELAYS.forEach((u) => { try {
+      const ws = new WebSocket(u);
+      const t = setTimeout(() => { try { ws.close(); } catch (e) {} }, 4000);
+      ws.onopen = () => { try { ws.send(msg); } catch (e) {} };
+      ws.onmessage = () => { clearTimeout(t); try { ws.close(); } catch (e) {} };
+      ws.onerror = () => clearTimeout(t);
+    } catch (e) {} });
+  } catch (e) {}
+}
+async function post(path, event) {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'не получилось');
+  broadcastToRelays(event);   // прошло проверку реестра — раздаём на нейтральные реле
+  return j;
+}
+const setMsg = (el, text, cls) => { if (el) { el.textContent = text; el.className = 'msg ' + (cls || ''); } };
+
+function wire() {
+  document.querySelectorAll('[data-vouch],[data-unvouch]').forEach((b) => b.onclick = async () => {
+    const pk = b.dataset.vouch || b.dataset.unvouch;
+    const m = document.querySelector('[data-vmsg="' + pk + '"]');
+    setMsg(m, '…');
+    try { await post('/api/vouch', await signed(b.dataset.vouch ? 8001 : 8002, [['p', pk]])); await load(); }
+    catch (e) { setMsg(m, e.message, 'err'); }
+  });
+  document.querySelectorAll('[data-revoke]').forEach((b) => b.onclick = async () => {
+    setMsg($('#dmsg'), '…');
+    try { await post('/api/revoke', await signed(8011, [['e', b.dataset.revoke]])); await load(); }
+    catch (e) { setMsg($('#dmsg'), e.message, 'err'); }
+  });
+  const give = $('#d_give');
+  if (give) give.onclick = async () => {
+    setMsg($('#dmsg'), '…');
+    try {
+      const tags = [['p', $('#d_to').value], ['scope', $('#d_scope').value]];
+      const days = Number($('#d_days').value || 0);
+      if (days > 0) tags.push(['until', String(Math.floor(Date.now() / 1000) + days * 86400)]);
+      if ($('#d_redel').checked) tags.push(['redelegate', '1']);
+      await post('/api/delegate', await signed(8010, tags));
+      setMsg($('#dmsg'), 'Доступ выдан.', 'ok'); await load();
+    } catch (e) { setMsg($('#dmsg'), e.message, 'err'); }
+  };
+  const inv = $('#mkinv');
+  if (inv) inv.onclick = async () => {
+    setMsg($('#invmsg'), '…');
+    try {
+      const j = await post('/api/invite', await signed(8020, []));
+      setMsg($('#invmsg'), 'Код (одноразовый, передай новичку): ' + j.invite, 'ok');
+    } catch (e) { setMsg($('#invmsg'), e.message, 'err'); }
+  };
+}
+
+load().catch(() => { $('#list').innerHTML = '<div class=mut>не загрузилось, обнови страницу</div>'; });
+</script></body></html>

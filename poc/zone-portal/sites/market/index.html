@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Объявления</title>
+<!--
+  noet — шаблон МАРКЕТ. Из примитивов window.noet, без сервера, без правок ядра.
+    Space    — доска (тема market:<app>)
+    Artifact — лоты (noet.artifact.publish, content = JSON {title,price,desc,img})
+    Relation — отзывы/вопросы по лоту (noet.relation.add type:reply)
+    Identity — продавец
+  Тот же Artifact, что у форума, но прочитан как «лоты». Реальная оплата это уже Policy/
+  внешний эскроу — отдельный кубик, не ядро.
+-->
+<style>
+  :root{--bg:#0d0d12;--card:#16161e;--bd:#262630;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff;--ok:#34d399}
+  *{box-sizing:border-box}body{font:16px/1.6 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);margin:0}
+  main{max-width:46rem;margin:0 auto;padding:2rem 1.1rem 5rem}
+  h1{font-size:1.6rem;margin:0 0 .1em}.sub{color:var(--mut);margin:0 0 1.3rem;font-size:.92rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.8rem}
+  .lot{background:var(--card);border:1px solid var(--bd);border-radius:14px;overflow:hidden;cursor:pointer}
+  .lot:hover{border-color:var(--acc)}
+  .lot .ph{width:100%;height:8.5rem;object-fit:cover;background:#0f0f15;display:block}
+  .lot .noph{width:100%;height:8.5rem;background:#0f0f15;display:flex;align-items:center;justify-content:center;color:#3a3a44;font-size:2rem}
+  .lot .b{padding:.6rem .7rem}
+  .lot .t{font-weight:600}.lot .pr{color:var(--ok);font-weight:600;margin-top:.15rem}
+  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem;margin-bottom:1rem}
+  input,textarea{width:100%;background:#0f0f15;border:1px solid var(--bd);color:var(--fg);border-radius:10px;padding:.55rem .7rem;font:inherit;margin-bottom:.5rem}
+  textarea{resize:vertical;min-height:3rem}
+  button{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:.55rem 1.1rem;font:inherit;cursor:pointer}
+  button:hover{background:#6c4dff}
+  button.ghost{background:transparent;border:1px solid var(--bd);color:var(--mut);font-size:.86rem;padding:.35rem .8rem}
+  .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.mut{color:var(--mut)}
+  .bar{margin-bottom:1rem}
+  .det .ph{width:100%;max-height:20rem;object-fit:contain;background:#0f0f15;border-radius:12px;margin:.4rem 0}
+  .who{color:var(--acc2);font-weight:600;font-size:.9rem}.when{color:var(--mut);font-size:.78rem;margin-left:.4rem}
+  .rev{border-left:2px solid var(--bd);padding-left:.8rem;margin:.5rem 0}
+  .msg{font-size:.85rem}.msg.err{color:#ff7b8a}.msg.ok{color:#34d399}
+  a{color:var(--acc2)}.foot{margin-top:2.5rem;color:var(--mut);font-size:.82rem}
+  details>summary{cursor:pointer;color:var(--acc2);margin-bottom:.6rem}
+  .nt-top{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:.6rem;padding:.5rem .9rem;background:#0f0f15;border-bottom:1px solid var(--bd);font:600 14px/1 system-ui,sans-serif}
+  .nt-top a{color:var(--mut);text-decoration:none;padding:.25rem .45rem;border-radius:8px;white-space:nowrap;cursor:pointer}
+  .nt-top a:hover{color:var(--fg);background:#1c1c25}
+  .nt-top .nt-home{color:var(--acc2)}
+  .nt-top .nt-name{color:var(--fg);flex:1;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body>
+<header class="nt-top">
+  <a class="nt-home" href="http://noet.nt/" title="noet">◐ noet</a>
+  <span class="nt-name">Объявления</span>
+  <a class="nt-back" href="http://noet.nt/">← Назад</a>
+</header>
+<script>
+(function(){
+  function go(u){ try{ if(window.noet&&window.noet.go){ window.noet.go(u); return; } }catch(e){} location.href=u; }
+  var hm=document.querySelector('.nt-home'), bk=document.querySelector('.nt-back');
+  if(hm) hm.addEventListener('click',function(e){ e.preventDefault(); go('http://noet.nt/'); });
+  if(bk) bk.addEventListener('click',function(e){ e.preventDefault(); if(history.length>1){ history.back(); } else { go('http://noet.nt/'); } });
+})();
+</script>
+<main>
+  <div id="app"><div class="mut">загружаю…</div></div>
+  <div class="foot"><a href="http://noet.nt/">noet</a></div>
+</main>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); };
+  var app = document.getElementById('app'), names = {}, TOPIC, lots = [], revOf = {};
+
+  function when(ts) { var d = new Date(ts * 1000); return d.toLocaleDateString('ru'); }
+  function img(u) { return /^https?:\/\//.test(u || '') ? u : ''; }
+  function lotData(ev) { try { var d = JSON.parse(ev.content || '{}'); return { title: d.title || 'без названия', price: d.price || '', desc: d.desc || '', img: img(d.img) }; } catch (e) { return { title: 'лот', price: '', desc: ev.content || '', img: '' }; } }
+  async function who(pk) { if (names[pk]) return names[pk]; names[pk] = pk.slice(0, 8) + '…'; try { var p = await window.noet.identity.get(pk); if (p && p.name) names[pk] = p.name; } catch (e) {} return names[pk]; }
+  function errText(e) { var s = (e && e.message) || ''; return /нет ключа|не активно|getPublicKey/i.test(s) ? 'Нужна личность: создай её в расширении noet.' : (s || 'не получилось'); }
+  function setMsg(el, t, c) { if (el) { el.textContent = t || ''; el.className = 'msg ' + (c || ''); } }
+
+  async function load() {
+    var all = await window.noet.artifact.query({ topic: TOPIC, kinds: [1], limit: 400 });
+    lots = []; revOf = {};
+    all.forEach(function (ev) { var e = (ev.tags || []).find(function (t) { return t[0] === 'e'; }); if (e) (revOf[e[1]] = revOf[e[1]] || []).push(ev); else lots.push(ev); });
+    lots.sort(function (a, b) { return b.created_at - a.created_at; });
+    route();
+  }
+  function route() { var id = (location.hash.match(/lot=([a-f0-9]+)/) || [])[1]; var l = id && lots.find(function (x) { return x.id === id; }); l ? viewLot(l) : viewList(); }
+
+  function viewList() {
+    var cards = lots.map(function (ev) { var d = lotData(ev);
+      return '<div class="lot" data-id="' + esc(ev.id) + '">' + (d.img ? '<img class="ph" src="' + esc(d.img) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '<div class="noph">🏷</div>') +
+        '<div class="b"><div class="t">' + esc(d.title) + '</div>' + (d.price ? '<div class="pr">' + esc(d.price) + '</div>' : '') + '</div></div>';
+    }).join('');
+    app.innerHTML = '<h1>Объявления</h1><p class="sub">Объявления живут в сети, их нельзя отобрать. О покупке договаривайтесь напрямую.</p>' +
+      '<details class="box"><summary>+ Разместить лот</summary>' +
+      '<input id="t" placeholder="название"><input id="p" placeholder="цена (например: 1500 ₽ или обмен)"><input id="im" placeholder="ссылка на фото (https://…)"><textarea id="d" placeholder="описание"></textarea>' +
+      '<div class="row"><button id="add">Разместить</button><span class="msg" id="msg"></span></div></details>' +
+      (cards ? '<div class="grid">' + cards + '</div>' : '<div class="mut">Пока нет лотов.</div>');
+    $('#add').onclick = async function () {
+      var t = ($('#t').value || '').trim(); if (!t) { setMsg($('#msg'), 'Нужно название.', 'err'); return; }
+      setMsg($('#msg'), '…');
+      try {
+        await window.noet.artifact.publish({ topic: TOPIC, content: JSON.stringify({ title: t, price: ($('#p').value || '').trim(), img: ($('#im').value || '').trim(), desc: ($('#d').value || '').trim() }) });
+        await load();
+      } catch (e) { setMsg($('#msg'), errText(e), 'err'); }
+    };
+    document.querySelectorAll('.lot').forEach(function (el) { el.onclick = function () { location.hash = 'lot=' + el.dataset.id; }; });
+  }
+
+  async function viewLot(ev) {
+    var d = lotData(ev), revs = (revOf[ev.id] || []).slice().sort(function (a, b) { return a.created_at - b.created_at; });
+    var seller = await who(ev.pubkey);
+    var revHtml = '';
+    for (var i = 0; i < revs.length; i++) revHtml += '<div class="rev"><span class="who">@' + esc(await who(revs[i].pubkey)) + '</span><span class="when">' + when(revs[i].created_at) + '</span><div>' + esc(revs[i].content) + '</div></div>';
+    app.innerHTML = '<div class="bar"><button class="ghost" id="back">← все лоты</button></div>' +
+      '<div class="det"><h1>' + esc(d.title) + '</h1>' + (d.price ? '<div class="pr" style="color:var(--ok);font-weight:600;font-size:1.1rem">' + esc(d.price) + '</div>' : '') +
+      (d.img ? '<img class="ph" src="' + esc(d.img) + '" onerror="this.style.display=\'none\'">' : '') +
+      '<p style="white-space:pre-wrap">' + esc(d.desc) + '</p><div class="mut" style="font-size:.88rem">продавец @' + esc(seller) + ' · ' + when(ev.created_at) + '</div>' +
+      '<h3 style="margin:1.2rem 0 .3rem;font-size:1rem">Отзывы и вопросы</h3>' + (revHtml || '<div class="mut" style="font-size:.88rem">пока нет</div>') +
+      '<div class="box" style="margin-top:.7rem"><textarea id="rt" placeholder="отзыв или вопрос…"></textarea><div class="row"><button id="rs">Отправить</button><span class="msg" id="rm"></span></div></div></div>';
+    $('#back').onclick = function () { location.hash = ''; };
+    $('#rs').onclick = async function () {
+      var txt = ($('#rt').value || '').trim(); if (!txt) return; setMsg($('#rm'), '…');
+      try { await window.noet.relation.add({ type: 'reply', to: ev.id, toAuthor: ev.pubkey, topic: TOPIC, content: txt }); await load(); }
+      catch (e) { setMsg($('#rm'), errText(e), 'err'); }
+    };
+  }
+
+  function boot(appId) {
+    if (!window.noet || !window.noet.artifact) { app.innerHTML = '<h1>Объявления</h1><div class="mut">Открой через noet (расширение). <a href="http://dev.nt/">что это</a></div>'; return; }
+    TOPIC = 'market:' + (appId || new URLSearchParams(location.search).get('app') || 'demo');
+    window.addEventListener('hashchange', route); load();
+  }
+  fetch('noet.env.json').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (env) { boot(env && env.APP); });
+})();
+</script></body></html>

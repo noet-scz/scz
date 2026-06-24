@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Гостевая книга</title>
+<!--
+  noet — пример конструктора. Целиком собран из примитивов window.noet, без сервера и
+  без правок ядра (docs/02-primitives.md):
+    Space  — общая лента (здесь по теме gb:<app>)
+    Artifact — запись (noet.artifact.publish / query)
+    Relation — ответ на запись (noet.relation.add type:reply / query)
+    Identity — кто пишет (noet.identity.me / get)
+  Скопируй, поменяй разметку — получится форум, доска отзывов, чат. Ядро не трогается.
+-->
+<style>
+  :root{--bg:#0d0d12;--card:#16161e;--bd:#262630;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}
+  body{font:16px/1.6 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);margin:0}
+  main{max-width:40rem;margin:0 auto;padding:2.4rem 1.1rem 5rem}
+  h1{font-size:1.7rem;margin:0 0 .2em}
+  .sub{color:var(--mut);margin:0 0 1.6rem;font-size:.95rem}
+  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:.9rem 1rem;margin-bottom:.8rem}
+  textarea{width:100%;background:#0f0f15;border:1px solid var(--bd);color:var(--fg);border-radius:10px;padding:.6rem .7rem;font:inherit;resize:vertical;min-height:3.2rem}
+  button{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:.55rem 1.1rem;font:inherit;cursor:pointer}
+  button:hover{background:#6c4dff}
+  button.ghost{background:transparent;border:1px solid var(--bd);color:var(--mut);padding:.3rem .7rem;font-size:.84rem;border-radius:8px}
+  button.ghost:hover{border-color:var(--acc);color:var(--fg)}
+  .row{display:flex;gap:.5rem;align-items:flex-start;margin-top:.5rem}
+  .entry .who{font-weight:600;color:var(--acc2);font-size:.92rem}
+  .entry .when{color:var(--mut);font-size:.78rem;margin-left:.5rem}
+  .entry .txt{margin:.3rem 0 .1rem;white-space:pre-wrap;word-break:break-word}
+  .replies{margin:.5rem 0 0 .9rem;border-left:2px solid var(--bd);padding-left:.8rem}
+  .reply{margin-top:.5rem}
+  .reply .who{font-size:.86rem}
+  .acts{margin-top:.25rem}
+  .rbox{margin-top:.5rem;display:none}
+  .rbox.on{display:block}
+  .mut{color:var(--mut)}
+  .msg{font-size:.86rem;margin-top:.4rem;min-height:1.1em}
+  .msg.err{color:#ff7b8a}.msg.ok{color:#34d399}
+  .gate{text-align:center;color:var(--mut);padding:1rem}
+  .brand{display:flex;align-items:center;gap:.5rem;margin-top:2.5rem;color:var(--mut);font-size:.82rem}
+  a{color:var(--acc2)}
+  .nt-top{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:.6rem;padding:.5rem .9rem;background:#0f0f15;border-bottom:1px solid var(--bd);font:600 14px/1 system-ui,sans-serif}
+  .nt-top a{color:var(--mut);text-decoration:none;padding:.25rem .45rem;border-radius:8px;white-space:nowrap;cursor:pointer}
+  .nt-top a:hover{color:var(--fg);background:#1c1c25}
+  .nt-top .nt-home{color:var(--acc2)}
+  .nt-top .nt-name{color:var(--fg);flex:1;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body>
+<header class="nt-top">
+  <a class="nt-home" href="http://noet.nt/" title="noet">◐ noet</a>
+  <span class="nt-name">Гостевая книга</span>
+  <a class="nt-back" href="http://noet.nt/">← Назад</a>
+</header>
+<script>
+(function(){
+  function go(u){ try{ if(window.noet&&window.noet.go){ window.noet.go(u); return; } }catch(e){} location.href=u; }
+  var hm=document.querySelector('.nt-home'), bk=document.querySelector('.nt-back');
+  if(hm) hm.addEventListener('click',function(e){ e.preventDefault(); go('http://noet.nt/'); });
+  if(bk) bk.addEventListener('click',function(e){ e.preventDefault(); if(history.length>1){ history.back(); } else { go('http://noet.nt/'); } });
+})();
+</script>
+<main>
+  <h1 id="title">Гостевая книга</h1>
+  <p class="sub">Оставь запись. Она подписана твоим ключом и живёт в сети, а не на чьём-то сервере.</p>
+
+  <div class="box" id="composer">
+    <textarea id="text" placeholder="что напишешь…"></textarea>
+    <div class="row"><button id="send">Оставить запись</button><span class="msg" id="msg"></span></div>
+  </div>
+
+  <div id="list"><div class="mut">загружаю…</div></div>
+
+  <div class="brand"><a href="http://noet.nt/">noet</a></div>
+</main>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); };
+
+  // тема книги: из noet.env.json (APP) или ?app=, чтобы у разных книг были разные ленты
+  var APP = 'demo';
+  function boot(app) {
+    APP = app || new URLSearchParams(location.search).get('app') || 'demo';
+    var TOPIC = 'gb:' + APP;
+
+    if (!window.noet || !window.noet.artifact) {
+      $('#list').innerHTML = '<div class="gate">Открой эту страницу через noet (расширение), чтобы появились записи. <a href="http://dev.nt/">что это</a></div>';
+      $('#composer').style.display = 'none';
+      return;
+    }
+
+    var meKey = null;
+    var names = {};   // pubkey -> отображаемое имя (ленивый кэш)
+
+    async function whoName(pk) {
+      if (names[pk]) return names[pk];
+      names[pk] = pk.slice(0, 8) + '…';
+      try { var p = await window.noet.identity.get(pk); if (p && p.name) names[pk] = p.name; } catch (e) {}
+      return names[pk];
+    }
+
+    function when(ts) { var d = new Date(ts * 1000); return d.toLocaleDateString('ru') + ' ' + d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }); }
+
+    async function load() {
+      try { meKey = (await window.noet.identity.me()).pubkey; } catch (e) { meKey = null; }
+      // все события темы: записи (без e-тега) и ответы (с e-тегом) — один Artifact-запрос
+      var all = await window.noet.artifact.query({ topic: TOPIC, kinds: [1], limit: 300 });
+      var roots = [], childOf = {};
+      all.forEach(function (ev) {
+        var e = (ev.tags || []).find(function (t) { return t[0] === 'e'; });
+        if (e) { (childOf[e[1]] = childOf[e[1]] || []).push(ev); } else { roots.push(ev); }
+      });
+      roots.sort(function (a, b) { return b.created_at - a.created_at; });
+
+      if (!roots.length) { $('#list').innerHTML = '<div class="mut">Пока пусто. Будь первым.</div>'; return; }
+
+      var html = '';
+      for (var i = 0; i < roots.length; i++) {
+        var ev = roots[i];
+        var kids = (childOf[ev.id] || []).sort(function (a, b) { return a.created_at - b.created_at; });
+        html += '<div class="box entry" data-id="' + esc(ev.id) + '" data-pk="' + esc(ev.pubkey) + '">' +
+          '<div><span class="who" data-who="' + esc(ev.pubkey) + '">' + esc(await whoName(ev.pubkey)) + '</span><span class="when">' + when(ev.created_at) + '</span></div>' +
+          '<div class="txt">' + esc(ev.content) + '</div>' +
+          '<div class="acts"><button class="ghost" data-reply="' + esc(ev.id) + '">Ответить</button></div>' +
+          '<div class="rbox" data-rbox="' + esc(ev.id) + '"><textarea placeholder="ответ…"></textarea><div class="row"><button data-rsend="' + esc(ev.id) + '">Ответить</button><span class="msg"></span></div></div>';
+        if (kids.length) {
+          html += '<div class="replies">';
+          for (var j = 0; j < kids.length; j++) {
+            html += '<div class="reply"><span class="who">' + esc(await whoName(kids[j].pubkey)) + '</span><span class="when">' + when(kids[j].created_at) + '</span><div class="txt">' + esc(kids[j].content) + '</div></div>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      $('#list').innerHTML = html;
+      wire();
+    }
+
+    function setMsg(el, text, cls) { if (el) { el.textContent = text || ''; el.className = 'msg ' + (cls || ''); } }
+
+    function wire() {
+      document.querySelectorAll('[data-reply]').forEach(function (b) {
+        b.onclick = function () { var box = document.querySelector('[data-rbox="' + b.dataset.reply + '"]'); if (box) box.classList.toggle('on'); };
+      });
+      document.querySelectorAll('[data-rsend]').forEach(function (b) {
+        b.onclick = async function () {
+          var box = document.querySelector('[data-rbox="' + b.dataset.rsend + '"]');
+          var ta = box.querySelector('textarea'), m = box.querySelector('.msg');
+          var txt = (ta.value || '').trim(); if (!txt) return;
+          var entry = document.querySelector('.entry[data-id="' + b.dataset.rsend + '"]');
+          setMsg(m, '…');
+          try {
+            // Relation: ответ на запись (NIP-10 e-теги под капотом)
+            await window.noet.relation.add({ type: 'reply', to: b.dataset.rsend, toAuthor: entry.dataset.pk, topic: TOPIC, content: txt });
+            ta.value = ''; await load();
+          } catch (e) { setMsg(m, errText(e), 'err'); }
+        };
+      });
+    }
+
+    function errText(e) {
+      var s = (e && e.message) || '';
+      if (/нет ключа|не активно|getPublicKey/i.test(s)) return 'Нужна личность: создай её в расширении noet.';
+      return s || 'не получилось';
+    }
+
+    $('#send').onclick = async function () {
+      var txt = ($('#text').value || '').trim(); if (!txt) return;
+      setMsg($('#msg'), '…');
+      try {
+        // Artifact: запись в общую ленту (мелкое содержимое = событие целиком)
+        await window.noet.artifact.publish({ topic: TOPIC, content: txt });
+        $('#text').value = ''; setMsg($('#msg'), 'Записано.', 'ok'); await load();
+      } catch (e) { setMsg($('#msg'), errText(e), 'err'); }
+    };
+
+    load();
+  }
+
+  // APP из noet.env.json (как в дашборде), иначе ?app=/demo
+  fetch('noet.env.json').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; })
+    .then(function (env) { boot(env && env.APP); });
+})();
+</script></body></html>

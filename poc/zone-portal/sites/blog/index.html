@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Блог</title>
+<!--
+  noet — шаблон БЛОГ. Из примитивов window.noet, без сервера, без правок ядра.
+    Space    — лента блога (тема blog:<app>)
+    Artifact — статьи (noet.artifact.publish type:article → kind 30023, лонгрид)
+    Identity — автор
+  Тот же примитив Artifact, что у форума и книги, но «статьи» вместо «сообщений».
+-->
+<style>
+  :root{--bg:#0c0c11;--card:#15151d;--bd:#24242e;--fg:#ededf3;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}body{font:17px/1.7 Georgia,'Times New Roman',serif;background:var(--bg);color:var(--fg);margin:0}
+  main{max-width:42rem;margin:0 auto;padding:2.4rem 1.2rem 5rem}
+  .ui{font-family:system-ui,sans-serif}
+  h1{font-size:2rem;margin:0 0 .1em}.lead{color:var(--mut);font-size:1rem;margin:0 0 1.6rem}
+  .art{border-bottom:1px solid var(--bd);padding:1.1rem 0;cursor:pointer}
+  .art:hover h2{color:var(--acc2)}
+  .art h2{font-size:1.35rem;margin:0 0 .2rem}
+  .art .meta{color:var(--mut);font-size:.85rem;font-family:system-ui,sans-serif}
+  .art .ex{color:#c3c3cd;margin:.3rem 0 0;font-size:.97rem}
+  article h2{font-size:1.5rem;border-left:3px solid var(--acc);padding-left:.6rem;margin:1.6rem 0 .5rem}
+  article p{margin:0 0 1rem}article a{color:var(--acc2)}
+  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem;margin-bottom:1.2rem;font-family:system-ui,sans-serif}
+  input,textarea{width:100%;background:#0f0f15;border:1px solid var(--bd);color:var(--fg);border-radius:10px;padding:.6rem .7rem;font:15px system-ui,sans-serif;margin-bottom:.5rem}
+  textarea{resize:vertical;min-height:8rem;line-height:1.6}
+  button{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:.55rem 1.1rem;font:15px system-ui,sans-serif;cursor:pointer}
+  button:hover{background:#6c4dff}
+  button.ghost{background:transparent;border:1px solid var(--bd);color:var(--mut);font-size:.86rem;padding:.35rem .8rem}
+  .row{display:flex;gap:.6rem;align-items:center}.mut{color:var(--mut)}
+  .msg{font-size:.85rem;font-family:system-ui,sans-serif}.msg.err{color:#ff7b8a}.msg.ok{color:#34d399}
+  .bar{margin-bottom:1rem;font-family:system-ui,sans-serif}
+  .foot{margin-top:2.5rem;color:var(--mut);font-size:.82rem;font-family:system-ui,sans-serif}
+  a{color:var(--acc2)}
+  .nt-top{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:.6rem;padding:.5rem .9rem;background:#0f0f15;border-bottom:1px solid var(--bd);font:600 14px/1 system-ui,sans-serif}
+  .nt-top a{color:var(--mut);text-decoration:none;padding:.25rem .45rem;border-radius:8px;white-space:nowrap;cursor:pointer}
+  .nt-top a:hover{color:var(--fg);background:#1c1c25}
+  .nt-top .nt-home{color:var(--acc2)}
+  .nt-top .nt-name{color:var(--fg);flex:1;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body>
+<header class="nt-top">
+  <a class="nt-home" href="http://noet.nt/" title="noet">◐ noet</a>
+  <span class="nt-name">Блог</span>
+  <a class="nt-back" href="http://noet.nt/">← Назад</a>
+</header>
+<script>
+(function(){
+  function go(u){ try{ if(window.noet&&window.noet.go){ window.noet.go(u); return; } }catch(e){} location.href=u; }
+  var hm=document.querySelector('.nt-home'), bk=document.querySelector('.nt-back');
+  if(hm) hm.addEventListener('click',function(e){ e.preventDefault(); go('http://noet.nt/'); });
+  if(bk) bk.addEventListener('click',function(e){ e.preventDefault(); if(history.length>1){ history.back(); } else { go('http://noet.nt/'); } });
+})();
+</script>
+<main>
+  <div id="app"><div class="mut ui">загружаю…</div></div>
+  <div class="foot"><a href="http://noet.nt/">noet</a></div>
+</main>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); };
+  var app = document.getElementById('app'), names = {}, TOPIC, arts = [];
+
+  function when(ts) { return new Date(ts * 1000).toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' }); }
+  function titleOf(ev) { var t = (ev.tags || []).find(function (x) { return x[0] === 'title'; }); return t ? t[1] : (ev.content || '').split('\n')[0].slice(0, 70); }
+  async function who(pk) { if (names[pk]) return names[pk]; names[pk] = pk.slice(0, 8) + '…'; try { var p = await window.noet.identity.get(pk); if (p && p.name) names[pk] = p.name; } catch (e) {} return names[pk]; }
+  function errText(e) { var s = (e && e.message) || ''; return /нет ключа|не активно|getPublicKey/i.test(s) ? 'Нужна личность: создай её в расширении noet.' : (s || 'не получилось'); }
+  function setMsg(el, t, c) { if (el) { el.textContent = t || ''; el.className = 'msg ' + (c || ''); } }
+  // простой рендер: пустая строка = абзац, строка с # = подзаголовок, ссылки кликабельны
+  function render(md) {
+    return String(md || '').replace(/\r/g, '').split(/\n{2,}/).map(function (block) {
+      var b = block.trim(); if (!b) return '';
+      if (/^#\s+/.test(b)) return '<h2>' + esc(b.replace(/^#\s+/, '')) + '</h2>';
+      var html = esc(b).replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noreferrer">$1</a>');
+      return '<p>' + html + '</p>';
+    }).join('');
+  }
+
+  async function load() {
+    arts = await window.noet.artifact.query({ topic: TOPIC, kinds: [30023], limit: 200 });
+    arts.sort(function (a, b) { return b.created_at - a.created_at; });
+    route();
+  }
+  function route() { var id = (location.hash.match(/post=([a-f0-9]+)/) || [])[1]; var a = id && arts.find(function (x) { return x.id === id; }); a ? viewPost(a) : viewList(); }
+
+  async function viewList() {
+    var rows = '';
+    for (var i = 0; i < arts.length; i++) {
+      var a = arts[i];
+      rows += '<div class="art" data-id="' + esc(a.id) + '"><h2>' + esc(titleOf(a)) + '</h2>' +
+        '<div class="meta">@' + esc(await who(a.pubkey)) + ' · ' + when(a.created_at) + '</div>' +
+        '<p class="ex">' + esc((a.content || '').replace(/[#>*]/g, '').slice(0, 160)) + '…</p></div>';
+    }
+    app.innerHTML = '<h1>Блог</h1><p class="lead ui">Статьи, которые нельзя отобрать или стереть.</p>' +
+      '<div class="box"><input id="t" placeholder="заголовок статьи"><textarea id="b" placeholder="текст. Пустая строка это новый абзац, строка с # это подзаголовок."></textarea>' +
+      '<div class="row"><button id="pub">Опубликовать</button><span class="msg" id="msg" style="margin-left:.4rem"></span></div></div>' +
+      (rows || '<div class="mut ui">Пока нет статей.</div>');
+    $('#pub').onclick = async function () {
+      var t = ($('#t').value || '').trim(), b = ($('#b').value || '').trim();
+      if (!t || !b) { setMsg($('#msg'), 'Нужны заголовок и текст.', 'err'); return; }
+      setMsg($('#msg'), '…');
+      try {
+        // Artifact: статья = лонгрид (kind 30023) в ленте блога
+        await window.noet.artifact.publish({ type: 'article', topic: TOPIC, content: b, tags: [['title', t]] });
+        $('#t').value = ''; $('#b').value = ''; await load();
+      } catch (e) { setMsg($('#msg'), errText(e), 'err'); }
+    };
+    document.querySelectorAll('.art').forEach(function (el) { el.onclick = function () { location.hash = 'post=' + el.dataset.id; }; });
+  }
+
+  async function viewPost(a) {
+    app.innerHTML = '<div class="bar"><button class="ghost" id="back">← все статьи</button></div>' +
+      '<h1>' + esc(titleOf(a)) + '</h1><div class="lead ui">@' + esc(await who(a.pubkey)) + ' · ' + when(a.created_at) + '</div>' +
+      '<article>' + render(a.content) + '</article>';
+    $('#back').onclick = function () { location.hash = ''; };
+  }
+
+  function boot(appId) {
+    if (!window.noet || !window.noet.artifact) { app.innerHTML = '<h1>Блог</h1><div class="mut ui">Открой через noet (расширение). <a href="http://dev.nt/">что это</a></div>'; return; }
+    TOPIC = 'blog:' + (appId || new URLSearchParams(location.search).get('app') || 'demo');
+    window.addEventListener('hashchange', route);
+    load();
+  }
+  fetch('noet.env.json').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (env) { boot(env && env.APP); });
+})();
+</script></body></html>

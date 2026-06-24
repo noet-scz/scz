@@ -104,6 +104,7 @@ export function createInvite(by = 'founder') {
   return code;
 }
 export const handleOf = (pubkey) => (members[pubkey] || {}).handle || null;
+export const allMembers = () => members;   // читается gov-модулем (репутация/доступы)
 export const pubkeyOfHandle = (handle) => { const e = Object.entries(members).find(([, m]) => m.handle === handle); return e ? e[0] : null; };
 export const allHandles = () => Object.fromEntries(Object.entries(members).map(([pk, m]) => [pk, m.handle]));
 export const stats = () => ({ members: Object.keys(members).length, invitesFree: Object.values(invites).filter((i) => !i.usedBy).length });

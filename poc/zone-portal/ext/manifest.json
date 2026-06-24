@@ -1,0 +1,90 @@
+{
+  "manifest_version": 3,
+  "name": "noet",
+  "version": "1.0.0",
+  "description": "Свободный интернет в твоём браузере: сайты, которые нельзя заблокировать, удалить или отобрать.",
+  "permissions": [
+    "webNavigation",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "bg.js"
+  },
+  "sandbox": {
+    "pages": [
+      "render.html"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "nostr-provider.js",
+        "noet-sdk.js",
+        "noet-primitives.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "world": "ISOLATED",
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "noet",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "view.html",
+        "view.js",
+        "render.html",
+        "noet-primitives.js",
+        "config.default.json",
+        "app/*",
+        "vendor/*",
+        "noet-names.js",
+        "app.html",
+        "app.js",
+        "people.html",
+        "people.js",
+        "dev.html",
+        "feed.html",
+        "feed.js",
+        "home.html",
+        "home.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

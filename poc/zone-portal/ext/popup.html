@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<title>noet</title>
+<style>
+  :root{--bg:#0a0a0c;--card:#15151c;--bd:#23232c;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff;--ok:#34d399}
+  *{box-sizing:border-box}
+  body{width:300px;margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,sans-serif;padding:1rem}
+  .brand{display:flex;align-items:center;gap:.5rem;margin-bottom:.9rem}
+  .brand img{width:24px;height:24px}.brand b{font-size:1rem}
+  h2{font-size:.95rem;margin:.2rem 0 .5rem}
+  p{color:var(--mut);margin:.3rem 0}
+  button{width:100%;border:0;border-radius:9px;padding:.6rem;font-weight:600;font-size:.9rem;cursor:pointer;margin:.3rem 0}
+  a{text-decoration:none;display:block;color:inherit}
+  .pri{background:var(--acc);color:#fff}.pri:hover{background:#6c4dff}
+  .gho{background:#1e1e28;color:var(--fg);border:1px solid var(--bd)}.gho:hover{border-color:var(--acc)}
+  .row2{display:flex;gap:.4rem}.row2 a{flex:1}.row2 button{margin:.3rem 0}
+  .lnk{background:0;color:var(--mut);font-weight:400;text-decoration:underline;font-size:.82rem}
+  .lnk.danger{color:#ff6b6b}
+  input{width:100%;background:#1e1e28;border:1px solid var(--bd);border-radius:8px;color:var(--fg);padding:.5rem;font:13px ui-monospace,monospace;margin:.3rem 0}
+  .pk{font:12px ui-monospace,monospace;color:var(--acc2);word-break:break-all;background:#1e1e28;border:1px solid var(--bd);border-radius:8px;padding:.5rem;margin:.4rem 0}
+  .ok{color:var(--ok);font-size:.82rem}
+  .sep{height:1px;background:var(--bd);margin:.7rem 0}
+  .hide{display:none}
+</style>
+</head><body>
+  <div class="brand"><img src="/logo.svg" alt=""><b>noet</b></div>
+  <div id="view"></div>
+<script type="module" src="popup.js"></script>
+</body></html>

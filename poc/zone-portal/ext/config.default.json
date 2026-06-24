@@ -1,0 +1,26 @@
+{
+  "registry": "http://144.31.25.136:8090",
+  "name_sources": [
+    "http://144.31.25.136:8090/api/names",
+    "https://noet-scz.github.io/noet/dist/names.json"
+  ],
+  "gateways": [
+    "https://{cid}.ipfs.dweb.link/",
+    "https://ipfs.io/ipfs/{cid}/",
+    "https://{cid}.ipfs.4everland.io/"
+  ],
+  "app_hosts": {
+    "noet.nt": "/",
+    "search.nt": "/",
+    "id.nt": "/id",
+    "relay.nt": "/relay",
+    "people.nt": "/people",
+    "dev.nt": "/dev",
+    "domains.nt": "/domains"
+  },
+  "relays": [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.nostr.band"
+  ]
+}

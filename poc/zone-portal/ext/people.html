@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Люди · noet</title>
+<style>
+  :root{--bg:#0a0a0d;--panel:#111118;--panel2:#16161f;--bd:#24242e;--bd2:#2f2f3a;--fg:#f1f1f5;--mut:#9595a3;--acc:#7c5cff;--acc2:#9d8bff;--ok:#3ddc97}
+  *{box-sizing:border-box}html,body{margin:0;min-height:100%}
+  body{background:radial-gradient(120% 75% at 50% -12%,#16121f 0%,transparent 58%) fixed,var(--bg);color:var(--fg);font:15px/1.55 -apple-system,system-ui,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:40rem;margin:0 auto;padding:2.4rem 1.2rem 5rem}
+  .top{display:flex;align-items:center;gap:.55rem;margin-bottom:.4rem}.top img{width:28px;height:28px}.top b{font-size:1.05rem}
+  h1{font-size:1.6rem;letter-spacing:-.3px;margin:.6rem 0 .2em}.lead{color:var(--mut);margin:0 0 1.4rem}
+  .nav{font-size:.88rem;margin-bottom:1.4rem}.nav a{color:var(--acc2);margin-right:1rem;text-decoration:none}
+  .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--bd);border-radius:14px;padding:1rem 1.1rem;margin-bottom:.7rem;box-shadow:0 8px 30px rgba(0,0,0,.28)}
+  .prow{display:flex;align-items:flex-start;gap:.8rem}
+  .pav{width:42px;height:42px;border-radius:50%;flex:0 0 42px}
+  .pname{font-weight:650}.pname a{color:var(--fg);text-decoration:none}.pname .me{color:var(--mut);font-weight:400;font-size:.85rem}
+  .psub{color:var(--mut);font-size:.83rem;margin-top:.1rem}
+  .rep{margin-left:auto;text-align:right}.rep b{font-size:1.25rem;color:var(--acc2)}.rep .lbl{display:block;color:var(--mut);font-size:.72rem}
+  .acts{margin-top:.5rem}
+  button{border:0;border-radius:9px;padding:.4rem .9rem;font:inherit;font-weight:600;cursor:pointer}
+  .b{background:var(--acc);color:#fff}.b:hover{background:#6b4dff}
+  .g{background:transparent;border:1px solid var(--bd2);color:var(--mut)}.g:hover{border-color:var(--acc);color:var(--fg)}
+  .msg{font-size:.82rem;margin-left:.5rem}.msg.err{color:#ff7b8a}.msg.ok{color:var(--ok)}
+  .mut{color:var(--mut)}a{color:var(--acc2)}
+  .rules p{margin:.35rem 0;color:#c3c3cd;font-size:.92rem}.rules b{color:var(--fg)}
+  h2{font-size:1.1rem;margin:2rem 0 .6rem;border-left:3px solid var(--acc);padding-left:.6rem}
+</style></head>
+<body><div class="wrap">
+  <div class="top"><img src="logo.svg" alt=""><b>noet</b></div>
+  <h1>Люди</h1>
+  <p class="lead">Участники сети, их репутация и поручительства. Всё считается из подписанных событий, без сервера.</p>
+  <div class="nav"><a id="lhome" href="#">Главная</a><a id="ldev" href="#">Разработчикам</a></div>
+  <div id="me"></div>
+  <div id="list"><div class="mut">загружаю участников…</div></div>
+  <h2>Как растёт репутация</h2>
+  <div class="card rules">
+    <p><b>Даётся за:</b> стаж в сети и поручительства других участников.</p>
+    <p><b>Что значит:</b> доверие сети к человеку. Это ёмкость, а не власть.</p>
+    <p><b>Считается у тебя в браузере</b> из открытых событий, одинаково у всех.</p>
+  </div>
+</div>
+<script type="module" src="people.js"></script>
+</body></html>

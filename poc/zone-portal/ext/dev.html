@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Для разработчиков · noet</title>
+<style>
+  :root{--bg:#0a0a0d;--panel:#111118;--panel2:#16161f;--bd:#24242e;--fg:#f1f1f5;--mut:#9595a3;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}body{margin:0;background:radial-gradient(120% 75% at 50% -12%,#16121f 0%,transparent 58%) fixed,var(--bg);color:var(--fg);font:15px/1.6 -apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:44rem;margin:0 auto;padding:2.4rem 1.2rem 5rem}
+  .top{display:flex;align-items:center;gap:.55rem}.top img{width:28px;height:28px}.top b{font-size:1.05rem}
+  h1{font-size:1.7rem;letter-spacing:-.3px;margin:.7rem 0 .2em}.lead{color:var(--mut);margin:0 0 1.4rem}
+  .nav{font-size:.88rem;margin-bottom:1.6rem}.nav a{color:var(--acc2);margin-right:1rem;text-decoration:none}
+  h2{font-size:1.15rem;margin:2rem 0 .6rem;border-left:3px solid var(--acc);padding-left:.6rem}
+  h3{color:var(--acc2);font-size:1rem;margin:1.3rem 0 .4rem}
+  p,li{color:#c3c3cd}
+  pre{background:#0c0c12;border:1px solid var(--bd);border-radius:12px;padding:.9rem 1rem;overflow:auto;font:13px/1.55 ui-monospace,monospace;color:#d8d8e2}
+  code{background:#0c0c12;border:1px solid var(--bd);border-radius:6px;padding:.06em .4em;font-size:.86em}
+  pre code{background:0;border:0;padding:0}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid #1b1b24;padding:.45rem .5rem;text-align:left;color:#c3c3cd}th{color:var(--mut);font-weight:500}
+  a{color:var(--acc2);text-decoration:none}a:hover{text-decoration:underline}
+</style></head>
+<body><div class="wrap">
+  <div class="top"><img src="logo.svg" alt=""><b>noet</b></div>
+  <h1>Для разработчиков</h1>
+  <p class="lead">Собери своё на noet: страницы, форумы, доски, вики. Сервер не нужен.</p>
+  <div class="nav"><a href="http://noet.nt/">Главная</a><a href="http://people.nt/">Люди</a></div>
+
+  <h2>Конструктор: пять примитивов</h2>
+  <p>На каждой странице noet доступен <code>window.noet</code> — конструктор из пяти примитивов.
+  Из них собирается что угодно, без правок ядра. Данные это подписанные события, живут в
+  сети и переживают любой сервер.</p>
+
+  <h3>Identity — кто действует</h3>
+  <pre><code>const me = await noet.identity.me();          // { pubkey }
+const profile = await noet.identity.get(pubkey);</code></pre>
+  <h3>Space — пространство любого типа</h3>
+  <pre><code>const s = await noet.space.create({ type: "forum", title: "Мой форум" });
+const mine = await noet.space.list({ owner: me.pubkey });</code></pre>
+  <h3>Artifact — содержимое</h3>
+  <pre><code>await noet.artifact.publish({ space, content: "первый пост" });
+const feed = await noet.artifact.query({ space });</code></pre>
+  <h3>Relation — связи</h3>
+  <pre><code>await noet.relation.add({ type: "reply", to: postId, toAuthor: pk, content: "ответ" });
+const replies = await noet.relation.query({ to: postId });</code></pre>
+  <h3>Policy — правила</h3>
+  <pre><code>await noet.policy.set(space, { post: { minRep: 3 } });
+const ok = await noet.policy.can({ scope: space, action: "post" });</code></pre>
+
+  <h2>Готовые шаблоны (форк и деплой)</h2>
+  <p>Разные продукты на одних примитивах. Открой исходник, поменяй разметку, задеплой через
+  свою страницу. Ядро не трогается.</p>
+  <table>
+    <tr><th>Шаблон</th><th>Исходник</th></tr>
+    <tr><td>Гостевая книга</td><td><a href="https://noet-scz.github.io/noet/sites/guestbook/" target="_blank">открыть</a></td></tr>
+    <tr><td>Форум</td><td><a href="https://noet-scz.github.io/noet/sites/forum/" target="_blank">открыть</a></td></tr>
+    <tr><td>Блог</td><td><a href="https://noet-scz.github.io/noet/sites/blog/" target="_blank">открыть</a></td></tr>
+    <tr><td>Объявления</td><td><a href="https://noet-scz.github.io/noet/sites/market/" target="_blank">открыть</a></td></tr>
+    <tr><td>Вики</td><td><a href="https://noet-scz.github.io/noet/sites/wiki/" target="_blank">открыть</a></td></tr>
+  </table>
+
+  <h2>Свой экземпляр</h2>
+  <p>Весь код открыт: <a href="https://github.com/noet-scz/noet" target="_blank">github.com/noet-scz/noet</a>.</p>
+</div>
+</body></html>

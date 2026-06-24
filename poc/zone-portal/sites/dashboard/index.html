@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>noet dashboard</title>
+<style>
+  :root{--bg:#0a0a0c;--card:#15151c;--bd:#23232c;--fg:#ececf2;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff;--ok:#34d399}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif;padding:2rem 1.2rem 4rem}
+  main{max-width:46rem;margin:0 auto}
+  h1{font-size:1.5rem;margin:0 0 .2rem;display:flex;align-items:center;gap:.5rem}
+  .sub{color:var(--mut);font-size:.9rem;margin-bottom:1.6rem}
+  .sub b{color:var(--acc2)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.8rem;margin-bottom:1.6rem}
+  .stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:1rem 1.1rem}
+  .stat .n{font-size:1.8rem;font-weight:800}
+  .stat .l{color:var(--mut);font-size:.8rem;margin-top:.1rem}
+  h2{font-size:1rem;color:var(--acc2);margin:1.6rem 0 .6rem}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:90px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:.7rem}
+  .bar{flex:1;background:linear-gradient(var(--acc2),var(--acc));border-radius:3px 3px 0 0;min-height:2px;position:relative}
+  .bar:hover::after{content:attr(data-t);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:.7rem;padding:.1rem .4rem;border-radius:4px;white-space:nowrap}
+  .types{display:flex;flex-wrap:wrap;gap:.5rem}
+  .tchip{background:var(--card);border:1px solid var(--bd);border-radius:999px;padding:.25rem .8rem;font-size:.85rem}
+  .tchip b{color:var(--acc2)}
+  .feed{background:var(--card);border:1px solid var(--bd);border-radius:12px}
+  .ev{display:flex;gap:.7rem;padding:.6rem .9rem;border-bottom:1px solid #16161d;font-size:.9rem;align-items:baseline}
+  .ev:last-child{border-bottom:0}
+  .ev .who{font-family:ui-monospace,monospace;color:var(--mut);flex:0 0 5.5rem}
+  .ev .ty{color:var(--acc2);font-weight:600;flex:0 0 5rem}
+  .ev .pa{color:#c3c3cd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .ev .tm{color:var(--mut);font-size:.78rem}
+  .hint{color:var(--mut);font-size:.85rem;margin-top:2rem;text-align:center}
+  a{color:var(--acc2)}
+  .cfg{display:flex;gap:.5rem;margin-bottom:1.6rem}
+  .cfg input{flex:1;background:var(--card);border:1px solid var(--bd);border-radius:9px;color:var(--fg);padding:.5rem .8rem}
+  .cfg button{background:var(--acc);border:0;border-radius:9px;color:#fff;padding:0 1.1rem;font-weight:600;cursor:pointer}
+</style></head>
+<body>
+<main>
+  <h1><img src="https://noet-scz.github.io/noet/web/logo.svg" width="26" onerror="this.remove()" alt="">Дашборд</h1>
+  <div class="sub" id="sub">…</div>
+  <div class="cfg" id="cfg" style="display:none"><input id="appin" placeholder="идентификатор приложения (data-app)"><button id="apply">Показать</button></div>
+  <div class="cards" id="cards"></div>
+  <h2>Активность по дням</h2>
+  <div class="bars" id="bars"></div>
+  <h2>Типы событий</h2>
+  <div class="types" id="types"></div>
+  <h2>Последнее</h2>
+  <div class="feed" id="feed"></div>
+  <div class="hint" id="hint"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+let APP=null;
+function short(pk){ return pk.slice(0,6)+'…'+pk.slice(-3); }
+function dkey(ts){ const d=new Date(ts); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+
+async function getApp(){
+  const u=new URLSearchParams(location.search).get('app'); if(u) return u;
+  try{ const e=await (await fetch('noet.env.json',{cache:'no-cache'})).json(); if(e.APP) return e.APP; }catch{}
+  return null;
+}
+
+async function load(){
+  if(!window.noet){ $('#sub').textContent=''; $('#hint').innerHTML='Открой через расширение noet, чтобы читать события. <a href="https://noet-scz.github.io/noet/dist/">Поставить</a>'; return; }
+  APP=await getApp();
+  if(!APP){ $('#cfg').style.display='flex'; $('#sub').textContent='Укажи идентификатор приложения.'; return; }
+  $('#sub').innerHTML='приложение <b>'+APP+'</b> · данные из Nostr, без бэкенда';
+  $('#feed').innerHTML='<div class=ev><span class=pa>загрузка…</span></div>';
+  let evs=[];
+  try{ evs=await window.noet.query({ kinds:[1337], '#t':['noet-an:'+APP], limit:500 }); }
+  catch{ $('#feed').innerHTML='<div class=ev><span class=pa>реле недоступны</span></div>'; return; }
+  const parsed=evs.map(e=>{ let c={}; try{c=JSON.parse(e.content);}catch{} return {pk:e.pubkey,ts:(c.ts||e.created_at*1000),type:c.type||'?',path:c.path||''}; });
+  // карточки
+  const users=new Set(parsed.map(p=>p.pk));
+  const since=parsed.length?new Date(Math.min(...parsed.map(p=>p.ts))):null;
+  $('#cards').innerHTML=[
+    ['Событий', parsed.length],
+    ['Уникальных', users.size],
+    ['Типов', new Set(parsed.map(p=>p.type)).size],
+  ].map(([l,n])=>`<div class=stat><div class=n>${n}</div><div class=l>${l}</div></div>`).join('');
+  // по дням (14)
+  const days=[]; const now=new Date();
+  for(let i=13;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); days.push({k:dkey(d.getTime()),label:(d.getMonth()+1)+'/'+d.getDate(),n:0}); }
+  const dmap={}; days.forEach(d=>dmap[d.k]=d);
+  parsed.forEach(p=>{ const k=dkey(p.ts); if(dmap[k]) dmap[k].n++; });
+  const max=Math.max(1,...days.map(d=>d.n));
+  $('#bars').innerHTML=days.map(d=>`<div class=bar style="height:${Math.round(d.n/max*100)}%" data-t="${d.label}: ${d.n}"></div>`).join('');
+  // типы
+  const byType={}; parsed.forEach(p=>byType[p.type]=(byType[p.type]||0)+1);
+  $('#types').innerHTML=Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<span class=tchip>${t} <b>${n}</b></span>`).join('')||'<span class=tchip>пока пусто</span>';
+  // лента
+  $('#feed').innerHTML=parsed.sort((a,b)=>b.ts-a.ts).slice(0,40).map(p=>
+    `<div class=ev><span class=who>${short(p.pk)}</span><span class=ty>${p.type}</span><span class=pa>${p.path||''}</span><span class=tm>${new Date(p.ts).toLocaleString()}</span></div>`
+  ).join('')||'<div class=ev><span class=pa>пока нет событий. Подключи noet-analytics.js на свой сайт.</span></div>';
+  $('#hint').innerHTML='Свой дашборд: используй <code>window.noet.query({kinds:[1337], "#t":["noet-an:'+APP+'"]})</code> и рисуй что хочешь.';
+}
+$('#apply')&&($('#apply').onclick=()=>{ const v=$('#appin').value.trim(); if(v){ location.search='?app='+encodeURIComponent(v); } });
+load();
+</script></body></html>

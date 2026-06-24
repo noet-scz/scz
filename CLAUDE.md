@@ -54,26 +54,37 @@
     сохраняет локально, закрывает popup. Подпись Nostr — локально через schnorr (dynamic import).
     Следствие: каждый origin хранит токен+nsec независимо. При первом входе popup обязателен.
 
-## Архитектура (origins и ключ)
+## Архитектура (ТЕКУЩАЯ: расширение-клиент + реестр-сервер)
 
-- Доступ по имени: расширение ставит PAC `*.nt AND *.blog → PROXY 127.0.0.1:8090`.
-- Домены зоны: `noet.nt` (поиск), `id.nt` (личность), `relay.nt` (реле), `handle.blog` (страница).
-  Старые `*.noet.nt` — backward-compat алиасы в server.mjs.
-- **Ключ (nsec) и токен** — в localStorage КАЖДОГО origin отдельно. Копируются туда при
-  popup-логине: `id.nt/?popup=1` → postMessage `{token, nsec}` → viджет кладёт в свой LS.
-- `relay.nt` — Nostr-реле (ws.mjs). Подписывает сообщения локально через schnorr (nsec из LS).
-- `noet.nt` — поиск. `id.nt` — регистрация, профиль, редактор страниц.
-- `handle.blog` — личная страница участника. Имя = хэндл, автоматически. Контент в IPFS.
-- Виджет (`web/widget.js`, Shadow DOM) — на всех страницах: чип + меню + popup-логин.
+- **Клиент = браузерное расширение** (`ext/`, Chrome/Vivaldi основной; Firefox только статика).
+  Замороженное, конфиг с GitHub Pages (`dist/config.json`, `dist/names.json`). `bg.js` перехватывает
+  ТОЛЬКО зарегистрированные `*.nt/*.me` (declarativeNetRequest + webNavigation) → `view.html`;
+  реальные домены (t.me) пропускает. App-хосты (`noet.nt`/`id.nt`/`relay.nt`) → top-level навигация
+  на http-страницы реестра.
+- **Рендер контента:** публичные шлюзы — тупик (dweb.link отдаёт байты но не выполняет JS; w3s.link
+  выполняет JS но не находит наш DHT-контент). Поэтому `view.js` ФЕТЧИТ байты страницы
+  (dweb.link/ipfs.io) и рисует в manifest-SANDBOX-странице `render.html` (CSP разрешает JS).
+  `window.nostr`/`window.noet` проброшены из sandbox в view.js (подпись + публичные wss-реле).
+- **Личность = Nostr-ключ В РАСШИРЕНИИ** (window.nostr NIP-07: `nostr-provider.js` MAIN + `bridge.js`
+  ISOLATED + `popup.html`). `account.js`/`widget.js` предпочитают window.nostr, fallback на
+  localStorage origin реестра (старый вход цел). Popup-моста БОЛЬШЕ НЕТ (правило 10 устарело).
+- **window.noet** (`noet-sdk.js`): me/publish/query поверх публичных wss-реле. Данные приложений
+  (статы, доски) = подписанные Nostr-события. Примеры `sites/clicker`, `sites/dashboard`.
+- **Реестр = `server.mjs`** на staging 144.31.25.136 (Docker, владелец nyx). Хранит ТОЛЬКО имена +
+  auth (`auth.mjs`) + Nostr-реле (`ws.mjs`) + seed-пин + пуш зеркала names.json на github. Имя =
+  `[sub.]handle.me` из сессии (`meNameFor`). `/api/publish` (text/html), `/api/publish-dir` (папка→IPFS).
+  `/api/resolve` отдаёт `raw` (редактор грузит сохранённое). `handle.me` авто при регистрации.
+- `server.mjs` двухролевой (REGISTRY_URL), но демон-клиент РЕТАЙРЕН. `noet.nt` поиск, `id.nt` личность/
+  редактор, `relay.nt` реле, `handle.me`/`sub.handle.me` страницы участника, контент в IPFS.
 
 ## Команды
 
-- Портал/IPFS — systemd user units `scz-portal`, `scz-ipfs` (порт 8090, gw 8080).
-  `systemctl --user restart scz-portal` после правок server.mjs.
-- Статика `web/*` отдаётся с диска свежей, перезапуск не нужен; расширение трогаем только
-  при смене PAC/иконки.
-- Инвайт (основатель): `curl -X POST -H "x-admin-token: <ADMIN>" http://127.0.0.1:8090/api/invite`.
-- Скриншот флоу: CDP через `google-chrome-stable --headless=new --remote-debugging-port=NNNN`.
+- Деплой на staging: `tar czf - web server.mjs | ssh root@144.31.25.136 "tar xzf - -C /root/scz-portal"`
+  (SSH через SSH_ASKPASS-трюк). После server.mjs — `docker restart scz-portal`. `dist/*` → git push (Pages).
+- Сборка расширения: `node build-ext.mjs` → `dist/noet-chrome.zip`, `noet-firefox.xpi`. Правка КОДА `ext/`
+  → пользователь ПЕРЕустанавливает; правка `dist/config.json`/`names.json` → нет (тянется в рантайме).
+- Инвайт (основатель): `curl -X POST -H "x-admin-token: <ADMIN>" http://144.31.25.136:8090/api/invite`.
+- Проверка: headless Chrome НЕ грузит расширения → плумбинг тестит пользователь; крипту/серверное в node.
 
 ## Честные времянки (назвать, не прятать)
 

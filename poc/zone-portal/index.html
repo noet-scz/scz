@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>noet · установка</title>
+<style>
+  :root{--bg:#0a0a0d;--card:#15151c;--bd:#23232c;--bd2:#2f2f3a;--fg:#ececf2;--mut:#9595a3;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}
+  body{font:16px/1.65 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;background:radial-gradient(120% 60% at 50% -10%,#16121f 0,transparent 60%) fixed,var(--bg);color:var(--fg);margin:0;-webkit-font-smoothing:antialiased}
+  main{max-width:42rem;margin:0 auto;padding:clamp(2.5rem,8vh,5rem) 1.2rem 5rem}
+  .brand{display:flex;align-items:center;gap:.7rem;margin-bottom:1.2rem}
+  .brand img{width:44px;height:44px}.brand h1{font-size:2.3rem;margin:0;font-weight:700;letter-spacing:-.5px}
+  .sub{font-size:1.2rem;margin:0 0 .5rem}
+  .lead{color:var(--mut);margin:0 0 2rem}
+  h2{font-size:1.15rem;margin:2.4rem 0 .8rem;display:flex;align-items:center;gap:.6rem}
+  .step{color:var(--acc2);font-size:.9rem;font-weight:700;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.3);border-radius:999px;width:1.7rem;height:1.7rem;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:.9rem}
+  .grid{display:grid;gap:.9rem;grid-template-columns:1fr}
+  @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+  .card h3{margin:0 0 .2rem;font-size:1rem}
+  .dl{display:inline-flex;align-items:center;gap:.5rem;background:var(--acc);color:#fff;text-decoration:none;border-radius:10px;padding:.6rem 1.1rem;font-weight:600;font-size:.92rem;margin:.5rem 0 .3rem}
+  .dl:hover{background:#6b4dff}
+  ol{margin:.4rem 0 0;padding-left:1.3rem}li{margin:.4rem 0;color:#c8c8d2}
+  code{background:#0e0e15;border:1px solid var(--bd);border-radius:6px;padding:.1em .45em;font-size:.9em}
+  a{color:var(--acc2)}
+  .note{color:var(--mut);font-size:.88rem;margin-top:.7rem}
+  .next{border-left:3px solid var(--acc);padding-left:1rem;margin-top:.6rem}.next b{color:var(--fg)}
+  footer{color:var(--mut);font-size:.86rem;margin-top:3rem;border-top:1px solid var(--bd);padding-top:1.2rem}
+</style>
+</head>
+<body><main>
+  <div class="brand"><img src="dist/logo.svg" alt=""><h1>noet</h1></div>
+  <p class="sub">Свободный интернет прямо в браузере.</p>
+  <p class="lead">Свои домены и сайты, привязанные к твоему ключу: их нельзя заблокировать, удалить или отобрать. Центрального сервера нет, каждая страница живёт в сети и подписана тобой. Поставь дополнение один раз.</p>
+
+  <h2><span class="step">1</span> Поставь дополнение</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Vivaldi · Chrome · Brave · Edge</h3>
+      <a class="dl" href="dist/noet-chrome.zip" download>Скачать .zip</a>
+      <ol>
+        <li>Распакуй архив в любую папку и не удаляй её.</li>
+        <li>Открой <code>chrome://extensions</code> (Vivaldi: <code>vivaldi://extensions</code>).</li>
+        <li>Включи <b>Режим разработчика</b> справа вверху.</li>
+        <li>Нажми <b>Загрузить распакованное</b> и выбери папку.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Firefox</h3>
+      <a class="dl" href="dist/noet-firefox.xpi" download>Скачать .xpi</a>
+      <ol>
+        <li>Открой <code>about:debugging#/runtime/this-firefox</code>.</li>
+        <li>Нажми <b>Загрузить временное дополнение</b>, выбери <code>.xpi</code>.</li>
+      </ol>
+      <p class="note">Слетает при перезапуске Firefox, пока дополнение не подписано. Для постоянной работы удобнее Chrome или Vivaldi.</p>
+    </div>
+  </div>
+
+  <h2><span class="step">2</span> Создай личность</h2>
+  <div class="card">
+    <p>Нажми иконку noet рядом с адресной строкой и выбери «Создать личность». Дополнение само скачает файл <code>noet-ключ.txt</code>.</p>
+    <p class="note"><b>Сохрани этот файл.</b> Это твой единственный вход: пароля и восстановления по почте нет. Потеряешь ключ, потеряешь личность и страницы.</p>
+  </div>
+
+  <h2><span class="step">3</span> Пользуйся</h2>
+  <div class="card">
+    <p>Набирай в адресной строке: <code>noet.nt</code> поиск, <code>id.nt</code> твой профиль, <code>people.nt</code> люди, <code>relay.nt</code> лента, <code>dev.nt</code> для тех, кто собирает своё.</p>
+    <div class="next"><b>Своя страница.</b> На <code>id.nt</code> нажми «Мои домены», займи имя (например <code>alex</code>) и отредактируй страницу. Адрес <code>alex.me</code> станет твоим, можно и поддомены: <code>blog.alex.me</code>.</div>
+  </div>
+
+  <footer>
+    Только для компьютера: мобильные браузеры пока не дают ставить такие дополнения.<br>
+    Код открыт: <a href="https://github.com/noet-scz/noet">github.com/noet-scz/noet</a>.
+  </footer>
+</main></body></html>

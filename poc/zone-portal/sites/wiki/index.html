@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вики</title>
+<!--
+  noet — шаблон ВИКИ. Из примитивов window.noet, без сервера, без правок ядра.
+    Space    — пространство вики (тема wiki:<app>)
+    Artifact — страницы, АДРЕСУЕМЫЕ по ключу-слагу (noet.artifact.publish key:slug →
+               kind 30078). Правка = новая версия, свежая побеждает (NIP-33).
+    Relation — ссылки между страницами через [[Имя]] (граф знаний)
+  Тот же Artifact, но «изменяемый по ключу» вместо «лента». Один примитив, другое прочтение.
+-->
+<style>
+  :root{--bg:#0c0c11;--card:#15151d;--bd:#24242e;--fg:#ededf3;--mut:#8b8b98;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}body{font:16px/1.7 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg);margin:0}
+  main{max-width:44rem;margin:0 auto;padding:2rem 1.1rem 5rem}
+  h1{font-size:1.7rem;margin:0 0 .1em}.sub{color:var(--mut);margin:0 0 1.3rem;font-size:.92rem}
+  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem;margin-bottom:1rem}
+  input,textarea{width:100%;background:#0f0f15;border:1px solid var(--bd);color:var(--fg);border-radius:10px;padding:.55rem .7rem;font:inherit;margin-bottom:.5rem}
+  textarea{resize:vertical;min-height:11rem;line-height:1.6;font:15px ui-monospace,monospace}
+  button{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:.55rem 1.1rem;font:inherit;cursor:pointer}
+  button:hover{background:#6c4dff}
+  button.ghost{background:transparent;border:1px solid var(--bd);color:var(--mut);font-size:.86rem;padding:.35rem .8rem}
+  .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.mut{color:var(--mut)}
+  .pglist a{display:block;color:var(--acc2);padding:.35rem 0;border-bottom:1px solid #1b1b24;text-decoration:none}
+  .pglist a:hover{color:#fff}
+  article{font-size:1.05rem}article h2{font-size:1.3rem;border-left:3px solid var(--acc);padding-left:.6rem;margin:1.4rem 0 .5rem}
+  article p{margin:0 0 1rem}article a{color:var(--acc2)}
+  .wl{color:var(--acc2);border-bottom:1px dashed var(--acc)}.wl.new{color:#c98b5a;border-color:#c98b5a}
+  .bar{margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .meta{color:var(--mut);font-size:.83rem}.msg{font-size:.85rem}.msg.err{color:#ff7b8a}
+  a{color:var(--acc2)}.foot{margin-top:2.5rem;color:var(--mut);font-size:.82rem}
+  .nt-top{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:.6rem;padding:.5rem .9rem;background:#0f0f15;border-bottom:1px solid var(--bd);font:600 14px/1 system-ui,sans-serif}
+  .nt-top a{color:var(--mut);text-decoration:none;padding:.25rem .45rem;border-radius:8px;white-space:nowrap;cursor:pointer}
+  .nt-top a:hover{color:var(--fg);background:#1c1c25}
+  .nt-top .nt-home{color:var(--acc2)}
+  .nt-top .nt-name{color:var(--fg);flex:1;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body>
+<header class="nt-top">
+  <a class="nt-home" href="http://noet.nt/" title="noet">◐ noet</a>
+  <span class="nt-name">Вики</span>
+  <a class="nt-back" href="http://noet.nt/">← Назад</a>
+</header>
+<script>
+(function(){
+  function go(u){ try{ if(window.noet&&window.noet.go){ window.noet.go(u); return; } }catch(e){} location.href=u; }
+  var hm=document.querySelector('.nt-home'), bk=document.querySelector('.nt-back');
+  if(hm) hm.addEventListener('click',function(e){ e.preventDefault(); go('http://noet.nt/'); });
+  if(bk) bk.addEventListener('click',function(e){ e.preventDefault(); if(history.length>1){ history.back(); } else { go('http://noet.nt/'); } });
+})();
+</script>
+<main>
+  <div id="app"><div class="mut">загружаю…</div></div>
+  <div class="foot"><a href="http://noet.nt/">noet</a></div>
+</main>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); };
+  var app = document.getElementById('app'), names = {}, TOPIC, pages = {};
+
+  function slug(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 48); }
+  function titleOf(ev) { var t = (ev.tags || []).find(function (x) { return x[0] === 'title'; }); return t ? t[1] : (ev.tags.find(function (x) { return x[0] === 'd'; }) || [])[1] || 'страница'; }
+  function dOf(ev) { return (ev.tags.find(function (x) { return x[0] === 'd'; }) || [])[1] || ''; }
+  function when(ts) { return new Date(ts * 1000).toLocaleDateString('ru') + ' ' + new Date(ts * 1000).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }); }
+  async function who(pk) { if (names[pk]) return names[pk]; names[pk] = pk.slice(0, 8) + '…'; try { var p = await window.noet.identity.get(pk); if (p && p.name) names[pk] = p.name; } catch (e) {} return names[pk]; }
+  function errText(e) { var s = (e && e.message) || ''; return /нет ключа|не активно|getPublicKey/i.test(s) ? 'Нужна личность: создай её в расширении noet.' : (s || 'не получилось'); }
+  function setMsg(el, t, c) { if (el) { el.textContent = t || ''; el.className = 'msg ' + (c || ''); } }
+  // [[Имя]] = ссылка-Relation на страницу; абзацы; # подзаголовок
+  function render(md) {
+    return String(md || '').replace(/\r/g, '').split(/\n{2,}/).map(function (block) {
+      var b = block.trim(); if (!b) return '';
+      if (/^#\s+/.test(b)) return '<h2>' + esc(b.replace(/^#\s+/, '')) + '</h2>';
+      var h = esc(b).replace(/\n/g, '<br>').replace(/\[\[([^\]]+)\]\]/g, function (_, name) {
+        var sl = slug(name); var cls = pages[sl] ? 'wl' : 'wl new';
+        return '<a class="' + cls + '" href="#page=' + sl + '">' + esc(name) + '</a>';
+      });
+      return '<p>' + h + '</p>';
+    }).join('');
+  }
+
+  function isDeleted(ev) { return (ev.tags || []).some(function (x) { return x[0] === 'deleted'; }); }
+  async function load() {
+    var all = await window.noet.artifact.query({ topic: TOPIC, kinds: [30078], limit: 500 });
+    pages = {};   // ключ-слаг → свежая версия
+    all.forEach(function (ev) { var d = dOf(ev); if (!d) return; if (!pages[d] || ev.created_at > pages[d].created_at) pages[d] = ev; });
+    // удаление = свежая версия-надгробие (tag deleted). Свежая побеждает, поэтому
+    // страницу можно создать заново позже. Прячем такие из списка и просмотра.
+    Object.keys(pages).forEach(function (d) { if (isDeleted(pages[d])) delete pages[d]; });
+    route();
+  }
+  function route() {
+    var h; try { h = decodeURIComponent(location.hash || ''); } catch (e) { h = location.hash || ''; }   // кириллица в hash percent-кодируется
+    var em = h.match(/edit=([a-z0-9а-яё-]*)/i);   // * — пустой слаг = новая страница
+    var view = (h.match(/page=([a-z0-9а-яё-]+)/i) || [])[1];
+    if (em) return viewEdit(em[1] || '');
+    if (view) return viewPage(view);
+    viewIndex();
+  }
+
+  function viewIndex() {
+    var keys = Object.keys(pages).sort(function (a, b) { return pages[b].created_at - pages[a].created_at; });
+    var list = keys.map(function (k) { return '<a href="#page=' + esc(k) + '">' + esc(titleOf(pages[k])) + '</a>'; }).join('');
+    app.innerHTML = '<h1>Вики</h1><p class="sub">Любой может создать страницу и править. Ссылайся на другие страницы через [[Имя]].</p>' +
+      '<div class="bar"><a href="#edit="><button>+ Новая страница</button></a></div>' +
+      '<div class="box pglist">' + (list || '<span class="mut">Пока нет страниц.</span>') + '</div>';
+  }
+
+  async function viewPage(sl) {
+    var ev = pages[sl];
+    if (!ev) {
+      app.innerHTML = '<div class="bar"><button class="ghost" id="back">← все страницы</button></div><h1>' + esc(sl) + '</h1>' +
+        '<p class="mut">Такой страницы ещё нет.</p><div class="bar"><a href="#edit=' + esc(sl) + '"><button>Создать её</button></a></div>';
+      $('#back').onclick = function () { location.hash = ''; }; return;
+    }
+    app.innerHTML = '<div class="bar"><button class="ghost" id="back">← все</button><a href="#edit=' + esc(sl) + '"><button class="ghost">Править</button></a>' +
+      '<button class="ghost" id="del">Удалить</button><span class="msg" id="pmsg"></span></div>' +
+      '<h1>' + esc(titleOf(ev)) + '</h1><div class="meta">правил @' + esc(await who(ev.pubkey)) + ' · ' + when(ev.created_at) + '</div>' +
+      '<article>' + render(ev.content) + '</article>';
+    $('#back').onclick = function () { location.hash = ''; };
+    $('#del').onclick = async function () {
+      if (!confirm('Удалить страницу «' + titleOf(ev) + '»? Её можно будет создать заново.')) return;
+      setMsg($('#pmsg'), '…');
+      try {
+        // надгробие: новая версия того же ключа с пустым содержимым и тегом deleted
+        await window.noet.artifact.publish({ key: sl, topic: TOPIC, content: '', tags: [['title', titleOf(ev)], ['deleted', '1']] });
+        await load(); location.hash = '';
+      } catch (e) { setMsg($('#pmsg'), errText(e), 'err'); }
+    };
+  }
+
+  function viewEdit(sl) {
+    var ev = sl && pages[sl];
+    var title = ev ? titleOf(ev) : '';
+    app.innerHTML = '<div class="bar"><button class="ghost" id="back">← отмена</button></div>' +
+      '<h1>' + (ev ? 'Править' : 'Новая страница') + '</h1>' +
+      '<div class="box"><input id="t" placeholder="заголовок" value="' + esc(title) + '">' +
+      '<textarea id="b" placeholder="текст. [[Другая страница]] это ссылка. Пустая строка это абзац, # это подзаголовок.">' + esc(ev ? ev.content : '') + '</textarea>' +
+      '<div class="row"><button id="save">Сохранить</button><span class="msg" id="msg"></span></div></div>';
+    $('#back').onclick = function () { location.hash = sl ? 'page=' + sl : ''; };
+    $('#save').onclick = async function () {
+      var t = ($('#t').value || '').trim(), b = ($('#b').value || '');
+      if (!t) { setMsg($('#msg'), 'Нужен заголовок.', 'err'); return; }
+      var key = sl || slug(t); if (!key) { setMsg($('#msg'), 'Плохой заголовок.', 'err'); return; }
+      setMsg($('#msg'), '…');
+      try {
+        // Artifact адресуемый: ключ = слаг, правка = новая версия (свежая побеждает)
+        await window.noet.artifact.publish({ key: key, topic: TOPIC, content: b, tags: [['title', t]] });
+        await load(); location.hash = 'page=' + key;
+      } catch (e) { setMsg($('#msg'), errText(e), 'err'); }
+    };
+  }
+
+  function boot(appId) {
+    if (!window.noet || !window.noet.artifact) { app.innerHTML = '<h1>Вики</h1><div class="mut">Открой через noet (расширение). <a href="http://dev.nt/">что это</a></div>'; return; }
+    TOPIC = 'wiki:' + (appId || new URLSearchParams(location.search).get('app') || 'demo');
+    window.addEventListener('hashchange', route); load();
+  }
+  fetch('noet.env.json').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (env) { boot(env && env.APP); });
+})();
+</script></body></html>

@@ -12,23 +12,37 @@
   .dot{width:8px;height:8px;border-radius:50%;background:#444;flex:0 0 8px}
   .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
   #log{flex:1;overflow-y:auto;padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.15rem}
-  .m{display:flex;gap:.65rem;padding:.35rem 0}
+  .m{display:flex;gap:.65rem;padding:.35rem 0;border-radius:8px}
+  .m.flash{background:rgba(124,92,255,.12)}
   .m .av{width:38px;height:38px;border-radius:50%;flex:0 0 38px;object-fit:cover;margin-top:.1rem}
-  .m .b{min-width:0}
+  .m .b{min-width:0;flex:1}
   .m .h{display:flex;align-items:baseline;gap:.5rem}
   .m .nm{font-weight:600;font-size:.95rem}
   .m.me .nm{color:var(--acc2)}
   .m .tm{color:var(--mut);font-size:.72rem}
+  .m .reply{margin-left:auto;background:0;border:0;color:var(--mut);cursor:pointer;font-size:.78rem;opacity:0;transition:.12s}
+  .m:hover .reply{opacity:1}
+  .m .reply:hover{color:var(--acc2)}
+  .m .refto{font-size:.78rem;color:var(--mut);cursor:pointer;margin-bottom:.1rem}
+  .m .refto:hover{color:var(--acc2)}
   .m .tx{color:#dcdce4;white-space:pre-wrap;word-wrap:break-word;font-size:.97rem}
   .m .tx a{color:var(--acc2)}
+  .m .tx a.mention{font-weight:600;text-decoration:none}
+  .m .tx img.img{max-width:300px;max-height:300px;border-radius:10px;margin-top:.35rem;display:block;border:1px solid var(--bd)}
   .day{align-self:center;color:var(--mut);font-size:.74rem;background:var(--panel2);border:1px solid var(--bd);border-radius:999px;padding:.1rem .7rem;margin:.6rem 0}
   .gatebox{margin:auto;text-align:center;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:1rem}
   .gatebox button{background:var(--acc);border:0;border-radius:12px;color:#fff;padding:.7rem 1.4rem;font-weight:600;font-size:1rem;cursor:pointer}
   footer{padding:.7rem 1.1rem;border-top:1px solid var(--bd)}
-  .composer{display:flex;gap:.5rem}
+  .replybar{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--mut);padding:.2rem .2rem .5rem}
+  .replybar b{color:var(--acc2);font-weight:600}
+  .replybar button{margin-left:auto;background:0;border:0;color:var(--mut);cursor:pointer;font-size:1rem}
+  .composer{display:flex;gap:.5rem;position:relative}
   .composer input{flex:1;border-radius:12px}
   .composer button{background:var(--acc);border:0;border-radius:12px;color:#fff;padding:0 1.1rem;font-weight:600}
   .composer button:disabled{opacity:.5;cursor:default}
+  .ac{position:absolute;bottom:100%;left:0;margin-bottom:.3rem;background:var(--panel2);border:1px solid var(--bd);border-radius:10px;overflow:hidden;min-width:11rem;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .ac div{padding:.4rem .7rem;cursor:pointer;font-size:.9rem}
+  .ac div.on,.ac div:hover{background:var(--acc);color:#fff}
 </style></head><body>
 <div class=app>
   <header>
@@ -44,15 +58,19 @@
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const linkify=s=>esc(s).replace(/(https?:\/\/[^\s<]+|[a-z0-9-]{1,32}\.noet\.nt(?:\/[^\s<]*)?)/gi,m=>{
-  const href=/^https?:/i.test(m)?m:'http://'+m; return `<a href="${href}">${m}</a>`;});
 const ID='http://id.nt/';
+const IMG_RE=/\.(png|jpe?g|gif|webp|avif|svg)(\?[^\s]*)?$/i;
 
-let me=null, ws=null, connected=false;
-const events=new Map(), profiles=new Map(), pTime=new Map(); let handles={};
+let me=null, ws=null, connected=false, replyTo=null;
+const events=new Map(), profiles=new Map(), pTime=new Map();
+let handles={}, handleToPk={};
 const loggedIn=()=>!!(me&&me.loggedIn);
 
-async function loadHandles(){ try{ handles=await(await fetch('/api/members')).json(); }catch{} }
+async function loadHandles(){
+  try{ handles=await(await fetch('/api/members')).json(); }catch{}
+  handleToPk={}; for(const pk in handles) handleToPk[String(handles[pk]).toLowerCase()]=pk;
+}
+const pubkeyOfHandle=h=>handleToPk[String(h).toLowerCase()]||null;
 function nameOf(pk){ const p=profiles.get(pk); if(p&&p.name) return p.name; if(handles[pk]) return handles[pk]; return pk.slice(0,8)+'…'; }
 function profOf(pk){ const p=profiles.get(pk)||{}; return {name:p.name||handles[pk]||'',picture:p.picture,about:p.about}; }
 const two=n=>String(n).padStart(2,'0');
@@ -64,6 +82,42 @@ function dayLabel(ts){
   if(same(d,n))return t('today'); if(same(d,y))return t('yesterday');
   return d.toLocaleDateString(window.noetLang()==='en'?'en-US':'ru-RU',{day:'numeric',month:'long'});
 }
+
+// рендер текста: картинки, ссылки, @упоминания
+function renderContent(text){
+  const re=/(https?:\/\/[^\s<]+)|(^|[^\w@])@([a-z0-9_]{2,20})/gi;
+  let out='', last=0, m;
+  while((m=re.exec(text))){
+    out+=esc(text.slice(last,m.index)); last=re.lastIndex;
+    if(m[1]){ const u=m[1];
+      out+= IMG_RE.test(u)
+        ? `<a href="${esc(u)}" target=_blank rel=noopener><img class=img loading=lazy src="${esc(u)}" alt=""></a>`
+        : `<a href="${esc(u)}" target=_blank rel=noopener>${esc(u)}</a>`;
+    } else { const lead=m[2]||'', h=m[3].toLowerCase(), pk=pubkeyOfHandle(h);
+      out+= esc(lead)+(pk?`<a class=mention href="http://${esc(h)}.me/">@${esc(h)}</a>`:'@'+esc(m[3]));
+    }
+  }
+  out+=esc(text.slice(last));
+  return out;
+}
+
+// NIP-10: собрать теги ответа + p-теги упоминаний, БЕЗ дублей
+function buildTags(text, parent){
+  const tags=[]; const pset=new Set();
+  const addP=pk=>{ if(pk && !pset.has(pk)){ pset.add(pk); tags.push(['p',pk]); } };
+  if(parent){
+    const rootTag=(parent.tags||[]).find(t=>t[0]==='e' && t[3]==='root');
+    const rootId=rootTag?rootTag[1]:parent.id;
+    if(rootId && rootId!==parent.id){ tags.push(['e',rootId,'','root']); tags.push(['e',parent.id,'','reply']); }
+    else tags.push(['e',parent.id,'','root']);
+    for(const tg of (parent.tags||[])) if(tg[0]==='p') addP(tg[1]);
+    addP(parent.pubkey);
+  }
+  let m; const mr=/(^|[^\w@])@([a-z0-9_]{2,20})/gi;
+  while((m=mr.exec(text))){ const pk=pubkeyOfHandle(m[2]); if(pk) addP(pk); }
+  return tags;
+}
+
 function render(){
   const log=$('#log');
   if(!loggedIn()){
@@ -78,12 +132,20 @@ function render(){
     const dk=dayLabel(ev.created_at);
     if(dk!==lastDay){ html+=`<div class=day>${esc(dk)}</div>`; lastDay=dk; }
     const mine=me&&me.pubkey===ev.pubkey;
-    html+=`<div class="m${mine?' me':''}"><img class=av src="${window.Noet.avatar(ev.pubkey,nameOf(ev.pubkey),profOf(ev.pubkey))}">
-      <div class=b><div class=h><span class=nm>${esc(nameOf(ev.pubkey))}</span><span class=tm title="${esc(new Date(ev.created_at*1000).toLocaleString())}">${fmtTime(ev.created_at)}</span></div>
-      <div class=tx>${linkify(ev.content)}</div></div></div>`;
+    const replyE=(ev.tags||[]).find(tg=>tg[0]==='e' && (tg[3]==='reply'||tg[3]==='root'||!tg[3]));
+    let ref='';
+    if(replyE){ const par=events.get(replyE[1]); const who=par?nameOf(par.pubkey):'…';
+      ref=`<div class=refto data-to="${esc(replyE[1])}">↳ ${esc(t('reply_to'))} @${esc(who)}</div>`; }
+    html+=`<div class="m${mine?' me':''}" data-id="${esc(ev.id)}"><img class=av src="${window.Noet.avatar(ev.pubkey,nameOf(ev.pubkey),profOf(ev.pubkey))}">
+      <div class=b><div class=h><span class=nm>${esc(nameOf(ev.pubkey))}</span><span class=tm>${fmtTime(ev.created_at)}</span><button class=reply data-id="${esc(ev.id)}">↩ ${esc(t('reply'))}</button></div>
+      ${ref}<div class=tx>${renderContent(ev.content)}</div></div></div>`;
   }
-  log.innerHTML=html; if(nearBottom) log.scrollTop=log.scrollHeight;
+  log.innerHTML=html;
+  log.querySelectorAll('.reply').forEach(b=>b.onclick=()=>{ const ev=events.get(b.dataset.id); if(ev){ replyTo=ev; renderFoot(); $('#ci')&&$('#ci').focus(); } });
+  log.querySelectorAll('.refto').forEach(r=>r.onclick=()=>{ const el=log.querySelector(`[data-id="${CSS.escape(r.dataset.to)}"]`); if(el){ el.scrollIntoView({block:'center',behavior:'smooth'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1200); } });
+  if(nearBottom) log.scrollTop=log.scrollHeight;
 }
+
 function ingest(ev){
   if(ev.kind===1){ if(!events.has(ev.id)){ events.set(ev.id,ev); return true; } }
   else if(ev.kind===0){ const tt=pTime.get(ev.pubkey)||0; if(ev.created_at>=tt){ pTime.set(ev.pubkey,ev.created_at); try{profiles.set(ev.pubkey,JSON.parse(ev.content||'{}'));}catch{} return true; } }
@@ -103,18 +165,56 @@ function connect(){
   ws.onerror=()=>{ try{ws.close();}catch{} };
 }
 function disconnect(){ if(ws){ try{ws.close();}catch{} ws=null; } connected=false; $('#dot').classList.remove('on'); }
+
 async function send(text){
   text=text.trim(); if(!text) return;
-  const ev=await window.Noet.signEvent({kind:1,created_at:Math.floor(Date.now()/1000),tags:[],content:text});
+  const tags=buildTags(text, replyTo);
+  const ev=await window.Noet.signEvent({kind:1,created_at:Math.floor(Date.now()/1000),tags,content:text});
+  replyTo=null; renderFoot();
   if(ws&&connected) ws.send(JSON.stringify(['EVENT',ev])); else { ingest(ev); render(); }
 }
+
 function renderFoot(){
   const f=$('#foot');
-  if(loggedIn()){
-    f.innerHTML=`<form class=composer id=cf><input id=ci placeholder="${esc(t('compose_ph'))}" maxlength=2000 autocomplete=off><button id=cb type=submit>${esc(t('send'))}</button></form>`;
-    $('#cf').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('#ci').value; $('#ci').value=''; $('#cb').disabled=true; try{await send(v);}catch(err){ $('#ci').value=v; alert(t('err_generic')); } $('#cb').disabled=false; $('#ci').focus(); });
-  }else f.innerHTML='';
+  if(!loggedIn()){ f.innerHTML=''; return; }
+  const rb = replyTo ? `<div class=replybar>${esc(t('reply_to'))} <b>@${esc(nameOf(replyTo.pubkey))}</b><button id=rcancel title="${esc(t('cancel'))}">✕</button></div>` : '';
+  f.innerHTML=rb+`<form class=composer id=cf><input id=ci placeholder="${esc(t('compose_ph'))}" maxlength=2000 autocomplete=off><div class=ac id=ac style="display:none"></div><button id=cb type=submit>${esc(t('send'))}</button></form>`;
+  const rc=$('#rcancel'); if(rc) rc.onclick=()=>{ replyTo=null; renderFoot(); };
+  $('#cf').addEventListener('submit',async e=>{ e.preventDefault(); const v=$('#ci').value; $('#ci').value=''; hideAc(); $('#cb').disabled=true; try{await send(v);}catch(err){ $('#ci').value=v; alert(t('err_generic')); } $('#cb').disabled=false; $('#ci').focus(); });
+  $('#ci').addEventListener('input',onCompose);
+  $('#ci').addEventListener('keydown',acKeydown);
 }
+
+// --- автодополнение @упоминаний ---
+let acItems=[], acIdx=0;
+function hideAc(){ const ac=$('#ac'); if(ac){ ac.style.display='none'; acItems=[]; } }
+function onCompose(e){
+  const inp=e.target, val=inp.value, pos=inp.selectionStart;
+  const before=val.slice(0,pos); const m=before.match(/@([a-z0-9_]*)$/i);
+  const ac=$('#ac'); if(!m){ hideAc(); return; }
+  const q=m[1].toLowerCase();
+  acItems=Object.values(handles).filter(h=>h && h.toLowerCase().startsWith(q)).slice(0,6);
+  if(!acItems.length){ hideAc(); return; }
+  acIdx=0;
+  ac.innerHTML=acItems.map((h,i)=>`<div class="${i===0?'on':''}" data-i="${i}">@${esc(h)}</div>`).join('');
+  ac.style.display='block';
+  ac.querySelectorAll('div').forEach(d=>d.onclick=()=>pickAc(+d.dataset.i));
+}
+function acKeydown(e){
+  if(!acItems.length) return;
+  if(e.key==='ArrowDown'){ e.preventDefault(); acIdx=(acIdx+1)%acItems.length; paintAc(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); acIdx=(acIdx-1+acItems.length)%acItems.length; paintAc(); }
+  else if(e.key==='Enter'||e.key==='Tab'){ if($('#ac').style.display!=='none'){ e.preventDefault(); pickAc(acIdx); } }
+  else if(e.key==='Escape'){ hideAc(); }
+}
+function paintAc(){ $('#ac').querySelectorAll('div').forEach((d,i)=>d.classList.toggle('on',i===acIdx)); }
+function pickAc(i){
+  const inp=$('#ci'), h=acItems[i]; if(!h) return;
+  const pos=inp.selectionStart, before=inp.value.slice(0,pos), after=inp.value.slice(pos);
+  const nb=before.replace(/@([a-z0-9_]*)$/i,'@'+h+' ');
+  inp.value=nb+after; inp.selectionStart=inp.selectionEnd=nb.length; hideAc(); inp.focus();
+}
+
 function applyLang(){ $('#title').textContent=t('relay_title'); renderFoot(); render(); }
 async function syncMe(){
   try{me=await window.Noet.whoami();}catch{me=null;}
@@ -124,7 +224,7 @@ async function syncMe(){
 window.addEventListener('noetlang',applyLang);
 (async()=>{
   applyLang();
-  loadHandles();
+  await loadHandles();
   await syncMe();
   window.Noet.onChange(()=>{ loadHandles().then(()=>{ if(loggedIn()) render(); }); syncMe(); });
   setInterval(loadHandles,60000);

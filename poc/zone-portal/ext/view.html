@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>noet</title>
+<style>
+  :root{--bg:#0a0a0c;--bar:#121219;--bd:#23232c;--bd2:#2f2f3a;--fg:#ececf2;--mut:#9595a3;--acc:#7c5cff;--acc2:#9d8bff}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+  body{display:flex;flex-direction:column}
+  /* единая верхняя полоса: тут ВСЯ навигация + личность, её можно свернуть */
+  #bar{display:flex;align-items:center;gap:.35rem;padding:.4rem .8rem;background:var(--bar);border-bottom:1px solid var(--bd);flex-shrink:0}
+  #bar.hide{display:none}
+  #brand{display:flex;align-items:center;cursor:pointer;padding:.15rem;flex-shrink:0}
+  #brand img{width:24px;height:24px;display:block}
+  #name{font-size:.8rem;color:var(--mut);letter-spacing:.2px;margin:0 .35rem 0 .15rem;white-space:nowrap}
+  #name .tld{opacity:.6}
+  #nav{display:flex;gap:.1rem;flex-wrap:wrap}
+  #nav a{color:var(--mut);font-size:.86rem;padding:.3rem .7rem;border-radius:999px;cursor:pointer;text-decoration:none;white-space:nowrap}
+  #nav a:hover{color:var(--fg)}
+  #nav a.on{color:var(--fg);background:#1c1c25}
+  .sp{flex:1}
+  #chip{display:none;align-items:center;gap:.4rem;cursor:pointer;background:#1c1c25;border:1px solid var(--bd2);border-radius:999px;padding:.18rem .65rem .18rem .22rem;color:var(--fg);font-size:.85rem;font-weight:600;max-width:11rem;flex-shrink:0}
+  #chip:hover{border-color:var(--acc)}
+  #chip img{width:24px;height:24px;border-radius:50%;flex:0 0 24px}
+  #chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #collapse{background:0;border:0;color:#6b6b78;cursor:pointer;font-size:.78rem;padding:.3rem .35rem;line-height:1;border-radius:7px;flex-shrink:0}
+  #collapse:hover{color:var(--fg);background:#1c1c25}
+  #reopen{position:fixed;top:.35rem;right:.85rem;z-index:50;display:none;background:0;border:0;color:#6b6b78;cursor:pointer;font-size:.78rem;line-height:1;padding:.3rem .35rem;border-radius:7px}
+  #reopen:hover{color:var(--fg);background:#1c1c25}
+  #stage{flex:1;position:relative;min-height:0}
+  iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
+  #msg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;color:var(--mut);text-align:center;padding:2rem}
+  #msg h2{color:var(--fg);margin:0;font-size:1.3rem}
+  .spin{width:26px;height:26px;border:3px solid var(--bd);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+  <div id="bar">
+    <a id="brand" title="Главная"><img src="/logo.svg" alt="noet"></a>
+    <span id="name"></span>
+    <nav id="nav">
+      <a data-h="people.nt">Люди</a>
+      <a data-h="relay.nt">Лента</a>
+      <a data-h="dev.nt">Разработчикам</a>
+    </nav>
+    <span class="sp"></span>
+    <a id="chip" title="Моя страница"></a>
+    <button id="collapse" title="свернуть полосу" aria-label="свернуть">▲</button>
+  </div>
+  <button id="reopen" title="показать полосу" aria-label="показать полосу">▼</button>
+  <div id="stage">
+    <iframe id="frame" referrerpolicy="no-referrer" hidden></iframe>
+    <div id="msg"><div class="spin"></div><div id="msgtext">резолвлю имя…</div></div>
+  </div>
+<script src="view.js"></script>
+</body>
+</html>
