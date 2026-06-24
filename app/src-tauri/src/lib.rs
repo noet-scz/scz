@@ -78,6 +78,9 @@ pub fn run() {
             let _ = fs::create_dir_all(&cfg);
             let port = gateway::start(cfg).unwrap_or(0);
             app.manage(Node { port });
+            if port != 0 {
+                let _ = open::that(format!("http://127.0.0.1:{}/", port));
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

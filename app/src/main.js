@@ -40,11 +40,9 @@ function render() {
       <p class="tag">${esc(t('tagline'))}</p>
       <div class="card">
         <div class="row"><span><span class="dot ${on ? '' : 'off'}"></span>${esc(on ? t('node_on') : t('node_off'))}</span></div>
-        <div class="row"><span class="k">${esc(t('address'))}</span><span class="mono">${esc(on ? url : '—')}</span></div>
         <div class="row"><span class="k">${esc(t('identity'))}</span><span class="v">${esc(status.hasKey ? t('id_yes') : t('id_no'))}</span></div>
       </div>
       <button class="pri" id="open" ${on ? '' : 'disabled'}>${esc(t('open'))}</button>
-      <div class="msg">${esc(t('open_hint'))}</div>
       <button class="ghost" id="upd">${esc(t('check_upd'))}</button>
       <div class="msg" id="umsg"></div>
       <div class="langs">
