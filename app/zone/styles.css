@@ -103,3 +103,9 @@ iframe.site{width:100%;height:72vh;border:1px solid var(--bd);border-radius:12px
   .chans-h{margin-bottom:.4rem}
   .feed{max-height:48vh}
 }
+
+/* просмотр сайта на весь экран (как было в расширении) */
+.siteview{height:100vh;display:flex;flex-direction:column}
+.sitebar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem .8rem;background:var(--panel);border-bottom:1px solid var(--bd);flex-shrink:0}
+.sitewrap{flex:1;min-height:0;display:flex}
+.sitefull{flex:1;width:100%;border:0;background:#fff}

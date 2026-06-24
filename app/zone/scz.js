@@ -138,15 +138,15 @@
   }
 
   /* ---------- роутер/шелл ---------- */
-  var ROUTES = ['home', 'messenger', 'sites', 'profile'];
-  function route() { var raw = (location.hash || '').replace(/^#\/?/, ''); var parts = raw ? raw.split('/').map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } }) : []; return { name: ROUTES.indexOf(parts[0]) >= 0 ? parts[0] : 'home', parts: parts }; }
+  var ROUTES = ['messenger', 'sites', 'profile'];
+  function route() { var raw = (location.hash || '').replace(/^#\/?/, ''); var parts = raw ? raw.split('/').map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } }) : []; return { name: ROUTES.indexOf(parts[0]) >= 0 ? parts[0] : 'messenger', parts: parts }; }
   function go() { location.hash = '#/' + Array.prototype.slice.call(arguments).map(encodeURIComponent).join('/'); }
 
   function shell(inner) {
     var r = route().name;
     var nick = me.hasKey ? ((me.profile && me.profile.name) || t('guest')) : t('guest');
     var tag = me.hasKey ? (tagOf() || t('no_tag')) : '';
-    var nav = [['home', '⌂', 'nav_home'], ['messenger', '✉', 'nav_msg'], ['sites', '⬡', 'nav_sites'], ['profile', '○', 'nav_me']];
+    var nav = [['messenger', '✉', 'nav_msg'], ['sites', '⬡', 'nav_sites'], ['profile', '○', 'nav_me']];
     return '<div class="shell"><aside class="side">' +
       '<div class="brand"><img src="/logo.svg"><span>SCZ</span></div>' +
       '<nav class="nav">' + nav.map(function (n) { return '<a data-go="' + n[0] + '" class="' + (r === n[0] ? 'on' : '') + '"><span class="ic">' + n[1] + '</span><span class="t">' + esc(t(n[2])) + '</span></a>'; }).join('') + '</nav>' +
@@ -165,16 +165,6 @@
   function nows() { return Math.floor(Date.now() / 1000); }
   function noKey(e) { return e && String(e.message || e).indexOf('no_key') >= 0; }
   function setMsg(id, txt, cls) { var el = document.getElementById(id); if (el) { el.textContent = txt || ''; el.className = 'msg ' + (cls || ''); } }
-
-  /* ---------- home ---------- */
-  function vHome() {
-    mount('<div class="wrap"><div class="row" style="gap:.7rem;margin-bottom:1rem"><img src="/logo.svg" width="40" height="40"><h1>SCZ</h1></div>' +
-      '<div class="grid">' +
-      '<a class="tile" data-go="messenger"><div class="ti">' + esc(t('t_msg')) + '</div></a>' +
-      '<a class="tile" data-go="sites"><div class="ti">' + esc(t('t_sites')) + '</div></a>' +
-      '<a class="tile" data-go="profile"><div class="ti">' + esc(t('t_me')) + '</div></a>' +
-      '</div></div>');
-  }
 
   /* ---------- профиль ---------- */
   function vProfile() {
@@ -326,22 +316,33 @@
         document.getElementById('pub').onclick = async function () { var html = val('phtml'); if (!html) return; setMsg('pmsg', '…'); try { await publish({ kind: KIND.page, content: html, tags: [['d', name]], created_at: nows() }); setMsg('pmsg', t('published'), 'ok'); } catch (e) { setMsg('pmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
       });
   }
+  var GATEWAYS = ['https://{cid}.ipfs.dweb.link/', 'https://ipfs.io/ipfs/{cid}/'];
+  async function fetchIpfs(cid) { for (var i = 0; i < GATEWAYS.length; i++) { try { var r = await fetch(GATEWAYS[i].replace('{cid}', cid), { signal: AbortSignal.timeout(8000) }); if (r.ok) { var txt = await r.text(); if (txt) return txt; } } catch (e) {} } return ''; }
+  // контент страницы: сырой HTML, либо старый формат расширения JSON {html} или {cid}
+  async function pageHtml(content) {
+    var c = content || '';
+    if (/^\s*\{/.test(c)) { try { var o = JSON.parse(c); if (typeof o.html === 'string' && o.html) return o.html; if (o.cid) return await fetchIpfs(o.cid); } catch (e) {} }
+    return c;
+  }
   async function vSiteView(name) {
-    mount('<div class="wrap"><div class="row" style="margin-bottom:.6rem;justify-content:space-between"><button class="ghost" data-go="sites">← ' + esc(t('back')) + '</button><span class="mono">' + esc(name) + '</span></div><div id="site"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>', async function () {
-      var box = document.getElementById('site');
-      try {
-        var claims = await query({ kinds: [KIND.claim], '#d': [name], limit: 50 }); claims.sort(function (a, b) { return a.created_at - b.created_at; });
-        var owner = claims[0] ? claims[0].pubkey : me.pubkey;
-        var pages = await query({ kinds: [KIND.page], '#d': [name], authors: [owner], limit: 10 }); pages.sort(function (a, b) { return b.created_at - a.created_at; });
-        if (!pages[0] || !pages[0].content) { box.innerHTML = '<div class="empty">' + esc(t('site_none')) + '</div>'; return; }
-        var bridge = '<scr' + 'ipt src="/scz-embed.js"></scr' + 'ipt>';
-        var html = pages[0].content; html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (m) { return m + bridge; }) : bridge + html;
-        var ifr = document.createElement('iframe'); ifr.className = 'site'; box.innerHTML = ''; box.appendChild(ifr); ifr.srcdoc = html;
-      } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
-    });
+    var app = document.getElementById('app');
+    app.innerHTML = '<div class="siteview"><div class="sitebar"><button class="ghost" id="sback">← ' + esc(t('back')) + '</button><span class="mono">' + esc(name) + '</span><span style="width:5rem"></span></div><div class="sitewrap" id="site"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    document.getElementById('sback').onclick = function () { go('sites'); };
+    var box = document.getElementById('site');
+    try {
+      var claims = await query({ kinds: [KIND.claim], '#d': [name], limit: 50 }); claims.sort(function (a, b) { return a.created_at - b.created_at; });
+      var owner = claims[0] ? claims[0].pubkey : me.pubkey;
+      var pages = await query({ kinds: [KIND.page], '#d': [name], authors: [owner], limit: 10 }); pages.sort(function (a, b) { return b.created_at - a.created_at; });
+      if (!pages[0]) { box.innerHTML = '<div class="empty">' + esc(t('site_none')) + '</div>'; return; }
+      var html = await pageHtml(pages[0].content);
+      if (!html) { box.innerHTML = '<div class="empty">' + esc(t('site_none')) + '</div>'; return; }
+      var bridge = '<scr' + 'ipt src="/scz-embed.js"></scr' + 'ipt>';
+      html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (m) { return m + bridge; }) : bridge + html;
+      var ifr = document.createElement('iframe'); ifr.className = 'sitefull'; box.innerHTML = ''; box.appendChild(ifr); ifr.srcdoc = html;
+    } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
 
-  function render() { var r = route().name; if (r === 'messenger') return vMessenger(); if (r === 'sites') return vSites(); if (r === 'profile') return vProfile(); vHome(); }
+  function render() { var r = route().name; if (r === 'sites') return vSites(); if (r === 'profile') return vProfile(); vMessenger(); }
   window.addEventListener('hashchange', render);
   (async function boot() { await refreshMe(); render(); })();
 })();
