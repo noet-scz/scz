@@ -66,6 +66,8 @@
       "resources": [
         "view.html",
         "view.js",
+        "call.html",
+        "call.js",
         "render.html",
         "noet-primitives.js",
         "config.default.json",

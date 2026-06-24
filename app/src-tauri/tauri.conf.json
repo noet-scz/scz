@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "productName": "SCZ",
+  "version": "0.1.0",
+  "identifier": "zone.scz.app",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "SCZ",
+        "width": 1120,
+        "height": 780,
+        "minWidth": 360,
+        "minHeight": 480
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "SocialNetworking",
+    "shortDescription": "Самоуправляемая Цифровая Зона",
+    "longDescription": "SCZ — цензуроустойчивая инфраструктура для цифровых сообществ: личность, лента, сообщества, вики, звонки. Без своих серверов.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

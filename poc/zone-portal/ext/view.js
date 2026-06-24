@@ -62,7 +62,7 @@ function setupBar(host) {
 }
 function showChip(dn, av) { const c = $('#chip'); c.innerHTML = '<img src="' + esch(av) + '"><span class="nm">' + esch(dn) + '</span>'; c.style.display = 'inline-flex'; }
 function applyNavLang(lang) {
-  const L = { 'people.nt': { ru: 'Люди', en: 'People' }, 'relay.nt': { ru: 'Лента', en: 'Feed' }, 'dev.nt': { ru: 'Разработчикам', en: 'Developers' } };
+  const L = { 'people.nt': { ru: 'Люди', en: 'People' }, 'relay.nt': { ru: 'Лента', en: 'Feed' }, 'call.nt': { ru: 'Звонок', en: 'Call' }, 'dev.nt': { ru: 'Разработчикам', en: 'Developers' } };
   document.querySelectorAll('#nav a').forEach((a) => { const t = L[a.dataset.h]; if (t) a.textContent = t[lang] || t.ru; });
   const b = $('#brand'); if (b) b.title = lang === 'en' ? 'Home' : 'Главная';
   const c = $('#chip'); if (c) c.title = lang === 'en' ? 'My page' : 'Моя страница';

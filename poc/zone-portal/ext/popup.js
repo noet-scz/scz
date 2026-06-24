@@ -24,6 +24,7 @@ function backup(sk, pk) {
 function launcher() {
   return `
     <a href="http://noet.nt/" target="_blank"><button class="pri">Открыть noet</button></a>
+    <button class="gho" id="goCall">Видеозвонок</button>
     <div class="row2">
       <a href="http://relay.nt/" target="_blank"><button class="gho">Лента</button></a>
       <a href="http://people.nt/" target="_blank"><button class="gho">Люди</button></a>
@@ -68,5 +69,8 @@ async function render() {
       await setSk(v); render();
     };
   }
+  // звонок: открываем страницу расширения напрямую (надёжнее адресной строки на телефоне)
+  const gc = document.getElementById('goCall');
+  if (gc) gc.onclick = () => api.tabs.create({ url: api.runtime.getURL('call.html') });
 }
 render();

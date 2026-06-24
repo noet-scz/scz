@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Базовые разрешения окна. Свои команды (identity_*, sign_event) не требуют capability.",
+  "windows": ["main", "*"],
+  "permissions": ["core:default"]
+}

@@ -4,6 +4,7 @@
 
 const api = globalThis.browser || globalThis.chrome;
 const VIEW = api.runtime.getURL('view.html');
+const CALL = api.runtime.getURL('call.html');   // звонок = страница расширения (secure context для камеры/экрана)
 const CONFIG_URL = 'https://noet-scz.github.io/noet/dist/config.json';
 const NAMES_URL = 'https://noet-scz.github.io/noet/dist/names.json';
 let relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
@@ -12,7 +13,7 @@ let relays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band']
 // ДО любых fetch'ей, чтобы noet.nt/id.nt/relay.nt перехватывались мгновенно: на свежей
 // установке, офлайн и пока воркер только будит сеть. Это критично на мобильных, где
 // навигация часто случается раньше, чем успеют подтянуться config.json/names.json.
-const CORE_HOSTS = ['noet.nt', 'search.nt', 'id.nt', 'relay.nt', 'people.nt', 'dev.nt', 'domains.nt'];
+const CORE_HOSTS = ['noet.nt', 'search.nt', 'id.nt', 'relay.nt', 'people.nt', 'dev.nt', 'domains.nt', 'call.nt'];
 
 let hosts = new Set(CORE_HOSTS);   // точные хосты, которые наши (служебные + базовые имена)
 let claimBases = new Set();   // заявленные имена, чьё ПОДДЕРЕВО наше: владелец nyx.me владеет *.nyx.me
@@ -79,6 +80,9 @@ api.webNavigation.onBeforeNavigate.addListener(async (d) => {
   if (d.frameId !== 0) return;
   let h; try { h = new URL(d.url).hostname.toLowerCase(); } catch { return; }
   if (!/\.(nt|me)$/.test(h)) return;          // быстрый отсев
+  // звонок: НЕ через view.html (его iframe-sandbox не отдаёт камеру), а прямой переход на
+  // страницу расширения call.html — там secure context для getUserMedia/getDisplayMedia
+  if (h === 'call.nt') { let s = ''; try { s = new URL(d.url).search; } catch {} api.tabs.update(d.tabId, { url: CALL + s }); return; }
   const set = await knownHosts();
   // наш хост, если: точное имя ИЛИ это поддомен имени, чьим поддеревом мы владеем (*.nyx.me)
   if (set.has(h) || (baseOf(h) !== h && claimBases.has(baseOf(h)))) { api.tabs.update(d.tabId, { url: VIEW + '?u=' + d.url }); return; }

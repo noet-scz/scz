@@ -1,0 +1,11 @@
+node_modules/
+dist/
+# Rust / Tauri build
+src-tauri/target/
+src-tauri/gen/
+# сгенерированные иконки (создаются в CI: tauri icon)
+src-tauri/icons/icon.ico
+src-tauri/icons/icon.icns
+src-tauri/icons/Square*.png
+src-tauri/icons/StoreLogo.png
+src-tauri/icons/*.icns
