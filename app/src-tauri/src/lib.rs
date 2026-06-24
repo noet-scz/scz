@@ -1,87 +1,91 @@
-// SCZ — Tauri-бэкенд. Хранит ключ в app-config-dir, отдаёт фронтенду команды личности и
-// подписи. Приватный ключ наружу не уходит (правило §1): экспорт — явное действие.
+// SCZ — узел (бэкбон). Поднимает локальный шлюз (зона для браузера + API подписи),
+// хранит личность, умеет самообновление (Tauri updater). Нативное окно тонкое: статус,
+// кнопка «Открыть SCZ в браузере», обновление. Всё остальное живёт в браузере.
 
+mod gateway;
 mod identity;
 
 use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_updater::UpdaterExt;
 
-fn key_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("identity.key"))
+struct Node {
+    port: u16,
 }
 
-fn read_key(app: &AppHandle) -> Option<String> {
-    let p = key_path(app).ok()?;
-    let s = fs::read_to_string(p).ok()?.trim().to_lowercase();
-    if s.len() == 64 && s.chars().all(|c| c.is_ascii_hexdigit()) {
-        Some(s)
-    } else {
-        None
-    }
+fn cfg_dir(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_config_dir()
+        .unwrap_or_else(|_| std::env::temp_dir().join("scz"))
+}
+
+#[tauri::command]
+fn gateway_url(state: tauri::State<'_, Node>) -> String {
+    format!("http://127.0.0.1:{}/", state.port)
+}
+
+#[tauri::command]
+fn open_zone(state: tauri::State<'_, Node>) -> Result<(), String> {
+    open::that(format!("http://127.0.0.1:{}/", state.port)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn identity_status(app: AppHandle) -> Value {
-    match read_key(&app) {
-        Some(sk) => match identity::pubkey_hex(&sk) {
-            Ok(pk) => json!({ "hasKey": true, "pubkey": pk }),
-            Err(_) => json!({ "hasKey": false }),
-        },
-        None => json!({ "hasKey": false }),
+    let cfg = cfg_dir(&app);
+    let p = cfg.join("identity.key");
+    match fs::read_to_string(p).ok().map(|s| s.trim().to_lowercase()) {
+        Some(sk) if sk.len() == 64 && sk.chars().all(|c| c.is_ascii_hexdigit()) => {
+            match identity::pubkey_hex(&sk) {
+                Ok(pk) => json!({ "hasKey": true, "pubkey": pk }),
+                Err(_) => json!({ "hasKey": false }),
+            }
+        }
+        _ => json!({ "hasKey": false }),
     }
 }
 
 #[tauri::command]
-fn identity_create(app: AppHandle) -> Result<Value, String> {
-    let sk = identity::generate();
-    let pk = identity::pubkey_hex(&sk)?;
-    fs::write(key_path(&app)?, &sk).map_err(|e| e.to_string())?;
-    // nsec (hex) отдаём один раз для бэкапа; на диске остаётся, фронтенд не хранит
-    Ok(json!({ "pubkey": pk, "nsec": sk }))
+async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(Some(update.version.clone())),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[tauri::command]
-fn identity_import(app: AppHandle, sk: String) -> Result<Value, String> {
-    let sk = sk.trim().to_lowercase();
-    let pk = identity::pubkey_hex(&sk).map_err(|_| "bad_key".to_string())?;
-    fs::write(key_path(&app)?, &sk).map_err(|e| e.to_string())?;
-    Ok(json!({ "pubkey": pk }))
-}
-
-#[tauri::command]
-fn identity_export(app: AppHandle) -> Result<String, String> {
-    read_key(&app).ok_or_else(|| "no_key".to_string())
-}
-
-#[tauri::command]
-fn identity_forget(app: AppHandle) -> Result<(), String> {
-    let p = key_path(&app)?;
-    if p.exists() {
-        fs::remove_file(p).map_err(|e| e.to_string())?;
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    if let Some(update) = updater.check().await.map_err(|e| e.to_string())? {
+        update
+            .download_and_install(|_, _| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        app.restart();
     }
     Ok(())
-}
-
-#[tauri::command]
-fn sign_event(app: AppHandle, event: Value) -> Result<Value, String> {
-    let sk = read_key(&app).ok_or_else(|| "no_key".to_string())?;
-    identity::sign_event(&sk, &event)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            let cfg = cfg_dir(&app.handle());
+            let _ = fs::create_dir_all(&cfg);
+            let port = gateway::start(cfg).unwrap_or(0);
+            app.manage(Node { port });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            gateway_url,
+            open_zone,
             identity_status,
-            identity_create,
-            identity_import,
-            identity_export,
-            identity_forget,
-            sign_event,
+            check_update,
+            install_update,
         ])
         .run(tauri::generate_context!())
         .expect("ошибка запуска SCZ");

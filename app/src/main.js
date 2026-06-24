@@ -1,110 +1,79 @@
-// SCZ — шелл и роутер. Единый сайдбар + один чип личности на всех экранах (правило §5).
-import { t, getLang, setLang } from './i18n.js';
-import * as id from './sdk/identity.js';
-import { identity } from './sdk/primitives.js';
-import { avatar, esc, shortPk } from './ui.js';
-import { mountFeed } from './views/feed.js';
-import { mountProfile } from './views/profile.js';
-import { mountSpaces } from './views/spaces.js';
-import { mountWiki } from './views/wiki.js';
-import { mountCall } from './views/call.js';
+// SCZ — нативное окно узла. Тонкий шелл: показывает, что узел поднят, и открывает зону в
+// браузере. Управление личностью и приложения живут в зоне (в браузере), не здесь.
+const invoke = (c, a) => window.__TAURI__.core.invoke(c, a);
 
-const ROUTES = {
-  feed: { icon: '◎', label: 'nav_feed', mount: mountFeed },
-  spaces: { icon: '⬡', label: 'nav_spaces', mount: mountSpaces },
-  wiki: { icon: '✎', label: 'nav_wiki', mount: mountWiki },
-  call: { icon: '◉', label: 'nav_call', mount: mountCall },
-  profile: { icon: '○', label: 'nav_profile', mount: mountProfile },
+const DICT = {
+  ru: {
+    title: 'SCZ', tagline: 'Узел зоны: личность, связь, обновление.',
+    node_on: 'Узел работает', node_off: 'Узел не запущен',
+    address: 'Адрес зоны', identity: 'Личность', id_yes: 'есть', id_no: 'нет, создашь в зоне',
+    open: 'Открыть SCZ в браузере', open_hint: 'Зона откроется в твоём браузере. Там личность, мессенджер, домены, сайты, игры, репутация.',
+    check_upd: 'Проверить обновления', checking: 'Проверяю…', up_to_date: 'Установлена последняя версия.',
+    update_found: 'Доступна версия', install: 'Обновить и перезапустить', updating: 'Обновляю…', upd_err: 'Обновление недоступно.',
+  },
+  en: {
+    title: 'SCZ', tagline: 'Zone node: identity, connectivity, updates.',
+    node_on: 'Node is running', node_off: 'Node is not running',
+    address: 'Zone address', identity: 'Identity', id_yes: 'present', id_no: 'none, create it in the zone',
+    open: 'Open SCZ in the browser', open_hint: 'The zone opens in your browser. Identity, messenger, domains, sites, games, reputation live there.',
+    check_upd: 'Check for updates', checking: 'Checking…', up_to_date: 'You are on the latest version.',
+    update_found: 'Version available', install: 'Update and restart', updating: 'Updating…', upd_err: 'Update unavailable.',
+  },
 };
-const ORDER = ['feed', 'spaces', 'wiki', 'call', 'profile'];
+let lang = localStorage.getItem('scz_lang') || 'ru';
+const t = (k) => (DICT[lang] && DICT[lang][k]) || DICT.ru[k] || k;
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-let me = { hasKey: false, pubkey: null, profile: null };
-let cleanup = null;
+let url = '', status = { hasKey: false }, up = 0;
 
-const ctx = {
-  me: () => me,
-  go: (route) => { location.hash = '#/' + route; },
-  refreshMe,
-};
-
-async function refreshMe() {
-  try {
-    const s = await id.status();
-    me = { hasKey: !!s.hasKey, pubkey: s.pubkey || null, profile: me.profile };
-    if (s.hasKey) { try { me.profile = await identity.profile(s.pubkey); } catch {} }
-    else me.profile = null;
-  } catch { me = { hasKey: false, pubkey: null, profile: null }; }
-  renderChip();
+async function refresh() {
+  try { url = await invoke('gateway_url'); } catch { url = ''; }
+  try { status = await invoke('identity_status'); } catch { status = { hasKey: false }; }
 }
 
-function currentRoute() {
-  const h = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
-  return ROUTES[h] ? h : 'feed';
-}
-
-function shell() {
-  const app = document.getElementById('app');
-  app.innerHTML = `
-    <div class="shell">
-      <aside class="side">
-        <div class="brand"><span class="logo"></span><span class="nm">SCZ</span></div>
-        <nav class="nav">${ORDER.map((r) => `<a data-route="${r}"><span class="ic">${ROUTES[r].icon}</span><span class="t">${esc(t(ROUTES[r].label))}</span></a>`).join('')}</nav>
-        <div class="sp"></div>
-        <div class="chip" id="chip"></div>
-        <div class="langs">
-          <button data-lang="ru" class="${getLang() === 'ru' ? 'on' : ''}">RU</button>
-          <button data-lang="en" class="${getLang() === 'en' ? 'on' : ''}">EN</button>
-        </div>
-      </aside>
-      <main class="main"><div id="view"></div></main>
+function render() {
+  const on = !!url && !/:0\//.test(url);
+  document.getElementById('app').innerHTML = `
+    <div class="node">
+      <img class="logo" src="./logo.svg" alt="SCZ">
+      <h1>${esc(t('title'))}</h1>
+      <p class="tag">${esc(t('tagline'))}</p>
+      <div class="card">
+        <div class="row"><span><span class="dot ${on ? '' : 'off'}"></span>${esc(on ? t('node_on') : t('node_off'))}</span></div>
+        <div class="row"><span class="k">${esc(t('address'))}</span><span class="mono">${esc(on ? url : '—')}</span></div>
+        <div class="row"><span class="k">${esc(t('identity'))}</span><span class="v">${esc(status.hasKey ? t('id_yes') : t('id_no'))}</span></div>
+      </div>
+      <button class="pri" id="open" ${on ? '' : 'disabled'}>${esc(t('open'))}</button>
+      <div class="msg">${esc(t('open_hint'))}</div>
+      <button class="ghost" id="upd">${esc(t('check_upd'))}</button>
+      <div class="msg" id="umsg"></div>
+      <div class="langs">
+        <button data-l="ru" class="${lang === 'ru' ? 'on' : ''}">RU</button>
+        <button data-l="en" class="${lang === 'en' ? 'on' : ''}">EN</button>
+      </div>
     </div>`;
-  app.querySelectorAll('.nav a').forEach((a) => { a.onclick = () => ctx.go(a.dataset.route); });
-  app.querySelector('#chip').onclick = () => ctx.go('profile');
-  app.querySelectorAll('.langs button').forEach((b) => { b.onclick = () => setLang(b.dataset.lang); });
-  renderChip();
-  renderRoute();
-}
 
-function renderChip() {
-  const chip = document.getElementById('chip');
-  if (!chip) return;
-  if (me.hasKey) {
-    const nm = (me.profile && me.profile.name) || shortPk(me.pubkey);
-    chip.innerHTML = `<img src="${avatar(me.pubkey, nm, me.profile && me.profile.picture)}"><div><div class="nm">${esc(nm)}</div><div class="sub">${esc(t('edit_profile'))}</div></div>`;
-  } else {
-    chip.innerHTML = `<img src="${avatar('guest', t('guest'))}"><div><div class="nm">${esc(t('guest'))}</div><div class="sub">${esc(t('create_identity'))}</div></div>`;
-  }
-}
+  const open = document.getElementById('open');
+  if (open) open.onclick = () => invoke('open_zone').catch(() => {});
+  document.querySelectorAll('[data-l]').forEach((b) => { b.onclick = () => { lang = b.dataset.l; localStorage.setItem('scz_lang', lang); render(); }; });
 
-function setActiveNav(route) {
-  document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.route === route));
+  const umsg = document.getElementById('umsg');
+  document.getElementById('upd').onclick = async () => {
+    umsg.className = 'msg'; umsg.textContent = t('checking');
+    try {
+      const v = await invoke('check_update');
+      if (!v) { umsg.classList.add('ok'); umsg.textContent = t('up_to_date'); return; }
+      umsg.textContent = t('update_found') + ' ' + v;
+      const btn = document.getElementById('upd');
+      btn.textContent = t('install');
+      btn.onclick = async () => { btn.disabled = true; umsg.textContent = t('updating'); try { await invoke('install_update'); } catch (e) { umsg.className = 'msg err'; umsg.textContent = t('upd_err'); btn.disabled = false; } };
+    } catch (e) { umsg.className = 'msg err'; umsg.textContent = t('upd_err'); }
+  };
 }
-
-async function renderRoute() {
-  const route = currentRoute();
-  setActiveNav(route);
-  if (typeof cleanup === 'function') { try { cleanup(); } catch {} cleanup = null; }
-  const view = document.getElementById('view');
-  view.innerHTML = `<div class="wrap"><div class="boot"><div class="spin"></div></div></div>`;
-  try {
-    const ret = await ROUTES[route].mount(view, ctx);
-    cleanup = typeof ret === 'function' ? ret : null;
-  } catch (e) {
-    console.error(e);
-    view.innerHTML = `<div class="wrap"><div class="empty">${esc(t('err_generic'))}</div></div>`;
-  }
-}
-
-window.addEventListener('hashchange', renderRoute);
-document.addEventListener('scz:lang', () => { shell(); });
 
 async function boot() {
-  if (!window.__TAURI__) {
-    document.getElementById('app').innerHTML = '<div class="boot"><div class="empty">Запусти через приложение SCZ (Tauri).</div></div>';
-    return;
-  }
-  document.documentElement.lang = getLang();
-  await refreshMe();
-  shell();
+  if (!window.__TAURI__) { document.getElementById('app').innerHTML = '<div class="boot">Запусти приложение SCZ.</div>'; return; }
+  await refresh();
+  render();
 }
 boot();

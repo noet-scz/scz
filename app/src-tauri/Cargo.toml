@@ -6,7 +6,6 @@ authors = ["SCZ"]
 edition = "2021"
 rust-version = "1.77"
 
-# Tauri v2: библиотека (для mobile) + бинарь (для desktop)
 [lib]
 name = "scz_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -16,17 +15,18 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# крипта личности живёт ТОЛЬКО в Rust (правило §1): secp256k1 BIP340 Schnorr, как в Nostr
+# крипта личности живёт ТОЛЬКО в Rust (правило §1): secp256k1 BIP340 Schnorr
 secp256k1 = { version = "0.29", features = ["rand", "std"] }
 rand = "0.8"
 sha2 = "0.10"
 hex = "0.4"
-
-[features]
-# по умолчанию для desktop; tauri добавляет custom-protocol в релизной сборке
-custom-protocol = ["tauri/custom-protocol"]
+# локальный шлюз: отдаёт зону браузеру + API подписи. Узел = бэкбон вместо расширения.
+tiny_http = "0.12"
+include_dir = "0.7"
+open = "5"
 
 [profile.release]
 opt-level = "s"

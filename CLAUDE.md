@@ -59,43 +59,53 @@
     подписанные события. libp2p/DHT/Hypercore/CRDT — это РОАДМАП (§10, Фаза 0+), пока не
     реализованы. Не выдавать прагматичный слой за целевой: помечать TODO/времянку в коде и UI.
 
-## Архитектура (ТЕКУЩАЯ: Tauri-клиент, Фаза-0 бэкенд на реле+IPFS)
+## Архитектура (ТЕКУЩАЯ: узел-бэкбон + зона в браузере)
 
-- **Клиент** = Tauri v2 (`app/`). Frontend — статический HTML/CSS/JS (`app/src/`, без
-  бандлера, `withGlobalTauri`), backend — Rust (`app/src-tauri/`). Сборка: `npm run tauri
-  build`. Кроссплатформа: Windows, Linux, Android (CI в `.github/workflows/`).
-- **Identity** = secp256k1 (BIP340 Schnorr), ключ и подпись в Rust. Команды:
-  `identity_status/create/import/export/forget`, `sign_event`. Это слой §04.1.
-- **Networking/Messaging (Фаза-0)** = публичные Nostr-реле через WebSocket из вебвью.
-  noet = подписанные события (kind'ы как в Nostr/NIP, см. `app/src/sdk/`). Целевое — libp2p
-  GossipSub (§04.3-4), пока времянка (§11).
-- **Storage (Фаза-0)** = подписанные события на реле (мелкое) + IPFS-шлюзы для медиа.
-  Целевое — Hypercore + IPFS (§04.5).
-- **Realtime** = WebRTC P2P (host-star, клиент-форвардер из участников, без своего SFU/VPS),
-  сигналинг — эфемерные события на реле. getUserMedia/getDisplayMedia работают: вебвью Tauri
-  = secure context. Камера + демонстрация экрана. §04.7.
-- **SDK** (`app/src/sdk/`) — слои identity/space/artifact/relation/feed поверх реле; те же
-  пять примитивов, что в §08_APPLICATIONS. Приложения (лента, профиль, сообщества, вики,
-  звонок) собираются из примитивов, ядро не трогают.
+ГЛАВНОЕ: приложение это НЕ «ещё одно приложение с вкладками». Это **узел (бэкбон)**,
+играющий роль бывшего расширения: личность, связь, самообновление. **Всё остальное
+(мессенджер, домены, сайты, игры, репутация) живёт в БРАУЗЕРЕ**, отдаётся узлом. Не
+встраивать функционал зоны в нативное окно: окно тонкое, зона это веб.
+
+- **Узел** = Tauri v2 (`app/src-tauri/`, Rust). Делает три вещи:
+  1. **Личность** — ключ secp256k1 + подпись BIP340 Schnorr ТОЛЬКО в Rust (правило §1).
+  2. **Связь** — локальный HTTP-шлюз (`gateway.rs`, `tiny_http`) на `127.0.0.1:8788+`,
+     отдаёт встроенную зону (`include_dir!("../zone")`) и API:
+     `/api/nostr/pubkey`, `/api/nostr/sign`, `/api/identity/{status,create,import,export,forget}`.
+  3. **Самообновление** — `tauri-plugin-updater` (endpoints = GitHub Releases, pubkey в
+     `tauri.conf.json`). Команды `check_update`/`install_update`. Для выпуска артефактов
+     включить `createUpdaterArtifacts:true` + секреты `TAURI_SIGNING_PRIVATE_KEY[_PASSWORD]`.
+- **Нативное окно** (`app/src/`, тонкий шелл): статус узла, адрес зоны, кнопка «Открыть SCZ
+  в браузере» (`open_zone` → дефолтный браузер на адрес шлюза), проверка обновлений. Личность
+  и приложения тут НЕ живут.
+- **Зона** (`app/zone/`, ванильный JS, отдаётся шлюзом в браузер): мост `window.nostr`
+  (подпись через `/api/nostr/*` узла) + `window.noet` (данные на публичных реле). Экраны:
+  главная, мессенджер (лента+каналы), домены и сайты (занять имя, опубликовать сайт/игру
+  под именем, открыть в iframe с мостом `scz-embed.js`), профиль + репутация (считается
+  локально по событиям). Это «всё в браузере за счёт узла» вместо расширения.
+- **Networking/Storage (Фаза-0, времянка §11)** = публичные Nostr-реле (wss) + IPFS-шлюзы.
+  Имена и сайты публикуются как события (claim 31111, page 31002). Целевое — libp2p
+  GossipSub + Hypercore (§04), миграция по роадмапу.
+- **Realtime** = WebRTC P2P (host-star), сигналинг на реле; getUserMedia работает в браузере
+  (зона на http://127.0.0.1 это secure context). Звонок/демонстрация экрана это зона.
 
 ## Структура
 
 ```
 app/
-  index.html              точка входа вебвью
   package.json            tauri-cli + скрипты (dev/build)
-  src/                    фронтенд (vanilla, без сборки)
-    main.js               роутер + шелл (сайдбар, чип личности)
-    i18n.js               словарь RU/EN
-    styles.css            тема
-    sdk/                  обёртки над реле/IPFS + invoke к Rust
-    views/                экраны: feed, profile, spaces, wiki, call
-  src-tauri/
+  src/                    НАТИВНОЕ ОКНО (тонкий шелл узла)
+    index.html main.js styles.css logo.svg
+  zone/                   ЗОНА (отдаётся шлюзом в браузер; ванильный JS)
+    index.html            точка входа зоны
+    scz.js                SPA: главная/мессенджер/домены-сайты/профиль+репутация
+    scz-embed.js          мост window.nostr/noet для опубликованных сайтов и игр
+    styles.css logo.svg
+  src-tauri/              УЗЕЛ (Rust)
     Cargo.toml  tauri.conf.json  build.rs
-    src/lib.rs            команды Tauri (identity, sign)
-    src/identity.rs       secp256k1 keygen/sign/store
-    capabilities/         разрешения
-    icons/                иконки приложения
+    src/lib.rs            запуск, команды (gateway_url/open_zone/update), плагин updater
+    src/gateway.rs        локальный HTTP-шлюз: зона + /api/identity + /api/nostr/sign
+    src/identity.rs       secp256k1 keygen/sign
+    capabilities/  icons/
 .github/workflows/        CI: сборка Win/Linux/Android, релизы
 docs/                     каноничные спецификации SCZ (01..10)
 poc/zone-portal/          ЗАМОРОЖЕНО: старое браузерное расширение (референс)

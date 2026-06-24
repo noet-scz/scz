@@ -58,6 +58,11 @@ jobs:
 
       - name: Build
         run: npx tauri build
+        env:
+          # Для self-update артефактов: включи createUpdaterArtifacts в tauri.conf.json
+          # и добавь эти секреты в репозиторий (Settings → Secrets → Actions).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Collect bundles
         if: always()
