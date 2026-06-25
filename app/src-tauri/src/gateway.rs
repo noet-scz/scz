@@ -237,6 +237,30 @@ fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Valu
         (&Method::Get, "/api/storage") => {
             (200, json!({ "bytes": dir_size(cfg), "accounts": list_accounts(cfg).len() }))
         }
+        (&Method::Post, "/api/nostr/encrypt") => match read_key(cfg) {
+            None => (401, json!({ "error": "no_key" })),
+            Some(sk) => {
+                let v: Value = serde_json::from_str(body).unwrap_or(json!({}));
+                let p = v.get("pubkey").and_then(|x| x.as_str()).unwrap_or("");
+                let txt = v.get("plaintext").and_then(|x| x.as_str()).unwrap_or("");
+                match crate::nip04::encrypt(&sk, p, txt) {
+                    Ok(c) => (200, json!({ "content": c })),
+                    Err(e) => (400, json!({ "error": e })),
+                }
+            }
+        },
+        (&Method::Post, "/api/nostr/decrypt") => match read_key(cfg) {
+            None => (401, json!({ "error": "no_key" })),
+            Some(sk) => {
+                let v: Value = serde_json::from_str(body).unwrap_or(json!({}));
+                let p = v.get("pubkey").and_then(|x| x.as_str()).unwrap_or("");
+                let c = v.get("content").and_then(|x| x.as_str()).unwrap_or("");
+                match crate::nip04::decrypt(&sk, p, c) {
+                    Ok(t) => (200, json!({ "plaintext": t })),
+                    Err(e) => (400, json!({ "error": e })),
+                }
+            }
+        },
         (&Method::Get, "/api/identity/export") => match read_key(cfg) {
             Some(sk) => (200, json!({ "sk": sk })),
             None => (404, json!({ "error": "no_key" })),

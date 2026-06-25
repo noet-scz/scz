@@ -147,3 +147,37 @@ button:disabled{opacity:.5;cursor:default}
 .tagrow{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.25rem}
 .tagrow .iconbtn{width:30px;height:30px;flex:0 0 30px;border-radius:8px}
 .tagrow input{margin:0}
+
+/* вкладки */
+.tabs{display:flex;gap:.3rem;margin-bottom:1rem;border-bottom:1px solid var(--bd)}
+.tab{padding:.5rem .9rem;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--fg)}
+.tab.on{color:var(--fg);border-bottom-color:var(--acc)}
+
+/* личные сообщения */
+.dmrow{display:flex;margin:.35rem 0}
+.dmrow.mine{justify-content:flex-end}
+.bub{max-width:75%;background:var(--panel2);border:1px solid var(--bd);border-radius:14px;padding:.5rem .75rem;white-space:pre-wrap;word-break:break-word}
+.dmrow.mine .bub{background:#2a2350;border-color:#3a3270}
+.bub .when{display:block;color:var(--mut);font-size:.7rem;margin-top:.2rem}
+
+/* вики */
+.pglist a{display:block;padding:.45rem 0;border-bottom:1px solid var(--bd);color:var(--acc2)}
+.pglist a:last-child{border-bottom:0}
+article h2{font-size:1.2rem;border-left:3px solid var(--acc);padding-left:.6rem;margin:1.3rem 0 .5rem}
+article p{margin:0 0 1rem}
+.wl{color:var(--acc2);border-bottom:1px dashed var(--acc);cursor:pointer}
+.wl.new{color:#c98b5a;border-color:#c98b5a}
+
+/* голосование */
+button.onv{border-color:var(--acc);color:var(--fg)}
+.commrow{cursor:pointer}.commrow:hover{border-color:var(--acc)}
+
+/* звонок */
+.callgrid{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:1rem}
+.tile{position:relative;background:#000;border:1px solid var(--bd);border-radius:12px;overflow:hidden;aspect-ratio:4/3}
+.tile video{width:100%;height:100%;object-fit:cover;background:#000;display:block}
+.tile.me video{transform:scaleX(-1)}.tile.me.sharing video{transform:none}
+.tile .lbl{position:absolute;left:.4rem;bottom:.4rem;background:rgba(0,0,0,.55);color:#fff;font-size:.76rem;padding:.12rem .5rem;border-radius:999px}
+.callbar{display:flex;gap:.5rem;flex-wrap:wrap}
+.callbar .danger{margin-left:auto}

@@ -23,6 +23,10 @@ secp256k1 = { version = "0.29", features = ["rand", "std"] }
 rand = "0.8"
 sha2 = "0.10"
 hex = "0.4"
+# личные сообщения (NIP-04): ECDH + AES-256-CBC
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+base64 = "0.22"
 # локальный шлюз: отдаёт зону браузеру + API подписи. Узел = бэкбон вместо расширения.
 tiny_http = "0.12"
 include_dir = "0.7"

@@ -4,6 +4,7 @@
 
 mod gateway;
 mod identity;
+mod nip04;
 
 use serde_json::{json, Value};
 use std::fs;
