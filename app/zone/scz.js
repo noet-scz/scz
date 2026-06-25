@@ -119,6 +119,7 @@
     check: '<path d="M5 12l5 5l10 -10"/>',
     photo: '<path d="M15 8h.01"/><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z"/><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5"/><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3"/>',
     trash: '<path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
+    video: '<path d="M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z"/><path d="M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"/>',
   };
   function icon(n, s) { return '<svg class="ic" width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (IC[n] || '') + '</svg>'; }
   function ibtn(id, ic, title) { return '<button class="iconbtn"' + (id ? ' id="' + id + '"' : '') + ' title="' + esc(title || '') + '">' + icon(ic) + '</button>'; }
@@ -214,7 +215,7 @@
   function header() {
     var r = route().name;
     var nick = me.hasKey ? ((me.profile && me.profile.name) || (me.handle ? me.handle.replace(/\.(nt|me)$/i, '') : t('guest'))) : t('guest');
-    var nav = [['messenger', 'nav_msg'], ['comm', 'nav_comm'], ['people', 'nav_people'], ['wiki', 'nav_wiki'], ['call', 'nav_call'], ['sites', 'nav_sites']];
+    var nav = [['messenger', 'nav_msg'], ['comm', 'nav_comm'], ['people', 'nav_people'], ['wiki', 'nav_wiki'], ['sites', 'nav_sites']];
     var chip = '<a class="hchip" data-go="profile">' + avImg(me.pubkey, nick, me.profile && me.profile.picture, 27) +
       '<span class="ci"><span class="nm">' + esc(nick) + '</span>' + (me.hasKey ? '<span class="tg">' + esc(tagText(me.handle, me.pubkey)) + '</span>' : '<span class="tg">' + esc(t('create_id')) + '</span>') + '</span></a>';
     return '<header class="hdr"><a class="hbrand" data-go="search"><img src="/logo.svg"><span>SCZ</span></a>' +
@@ -479,7 +480,7 @@
       box.innerHTML = list.map(function (n) { return '<div class="nameitem"><span class="mono" style="flex:1">' + esc(n) + '</span><button class="iconbtn" data-open="' + esc(n) + '" title="' + esc(t('open')) + '">' + icon('open') + '</button><button data-pub="' + esc(n) + '">' + esc(t('publish')) + '</button><button class="iconbtn" data-del="' + esc(n) + '" title="' + esc(t('del_name')) + '">' + icon('trash') + '</button></div>'; }).join('');
       box.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { go('sites', 'open', b.dataset.open); }; });
       box.querySelectorAll('[data-pub]').forEach(function (b) { b.onclick = function () { go('sites', 'pub', b.dataset.pub); }; });
-      box.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = async function () { var n = b.dataset.del; if (!confirm(t('del_name_q'))) return; try { await publish({ kind: 5, content: '', tags: byName[n].map(function (id) { return ['e', id]; }), created_at: nows() }); _index = null; if (me.handle === n) me.handle = ''; await refreshMe(); loadNames(); } catch (e) {} }; });
+      box.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = async function () { var n = b.dataset.del; if (!confirm(t('del_name_q'))) return; try { await publish({ kind: 5, content: '', tags: byName[n].map(function (id) { return ['e', id]; }), created_at: nows() }); me.names = (me.names || []).filter(function (x) { return x !== n; }); if (me.handle === n) me.handle = me.names[0] || ''; _index = null; var row = b.closest('.nameitem'); if (row) row.remove(); if (!me.names.length) box.innerHTML = '<div class="empty">' + esc(t('no_names')) + '</div>'; } catch (e) {} }; });
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
   function vPublish(name) {
@@ -576,10 +577,11 @@
     }
     var prof = await profileOf(peer).catch(function () { return {}; });
     var nm = prof.name || npubShort(peer);
-    mount('<div class="wrap wide"><div class="row" style="margin-bottom:.6rem">' + ibtn('', 'back', t('back')) + '<b>' + esc(nm) + '</b> <span class="mut mono">' + esc(npubShort(peer)) + '</span></div>' +
+    mount('<div class="wrap wide"><div class="row" style="margin-bottom:.6rem;justify-content:space-between"><div class="row">' + ibtn('', 'back', t('back')) + '<b>' + esc(nm) + '</b> <span class="mut mono">' + esc(npubShort(peer)) + '</span></div>' + ibtn('dmcall', 'video', t('nav_call')) + '</div>' +
       '<div class="card chatcard" style="padding:0"><div id="dmlist" class="feed"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div>' +
       '<div class="composer"><textarea id="dmtxt" placeholder="' + esc(t('dm_ph')) + '"></textarea><div class="row" style="justify-content:flex-end"><span class="msg" id="dmmsg" style="flex:1"></span><button class="iconbtn pri" id="dmsend" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div></div></div>', function () {
         document.querySelector('.wrap .iconbtn').onclick = function () { go('messenger', 'dm'); };
+        document.getElementById('dmcall').onclick = async function () { var back = location.hash; try { var enc = await api.encrypt(peer, CALL_MARK + me.pubkey); if (!enc.error) await publish({ kind: 4, content: enc.content, tags: [['p', peer]], created_at: nows() }); } catch (e) {} runCall(me.pubkey, true, back); };
         document.getElementById('dmsend').onclick = async function () {
           var txt = (val('dmtxt') || '').trim(); if (!txt) return; setMsg('dmmsg', t('sending'));
           try { var enc = await api.encrypt(peer, txt); if (enc.error) throw new Error(enc.error); await publish({ kind: 4, content: enc.content, tags: [['p', peer]], created_at: nows() }); document.getElementById('dmtxt').value = ''; setMsg('dmmsg', ''); loadDM(peer); }
@@ -609,7 +611,8 @@
       evs.sort(function (a, b) { return a.created_at - b.created_at; });
       if (!evs.length) { box.innerHTML = '<div class="empty">' + esc(t('dm_empty')) + '</div>'; return; }
       var parts = await Promise.all(evs.map(function (e) { return api.decrypt(peer, e.content).then(function (r) { return { e: e, txt: r.plaintext || ('[' + t('dm_locked') + ']') }; }).catch(function () { return { e: e, txt: '[' + t('dm_locked') + ']' }; }); }));
-      box.innerHTML = parts.map(function (x) { var mine = x.e.pubkey === me.pubkey; return '<div class="dmrow ' + (mine ? 'mine' : '') + '"><div class="bub">' + esc(x.txt) + '<span class="when">' + esc(when(x.e.created_at)) + '</span></div></div>'; }).join('');
+      box.innerHTML = parts.map(function (x) { var mine = x.e.pubkey === me.pubkey; var cr = callRoom(x.txt); var body = cr ? '<button class="ghost calljoin" data-room="' + esc(cr) + '">' + icon('video') + ' ' + esc(t('nav_call')) + '</button>' : esc(x.txt); return '<div class="dmrow ' + (mine ? 'mine' : '') + '"><div class="bub">' + body + '<span class="when">' + esc(when(x.e.created_at)) + '</span></div></div>'; }).join('');
+      box.querySelectorAll('.calljoin').forEach(function (b) { b.onclick = function () { var r = b.dataset.room; runCall(r, r === me.pubkey, location.hash); }; });
       box.scrollTop = box.scrollHeight;
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
@@ -688,7 +691,7 @@
     var topic = 'scz.comm:' + coord, govTopic = 'scz.gov:' + coord, joinTopic = 'scz.commjoin:' + coord;
     var sp = null; try { sp = await space.get(coord); } catch (e) {}
     var title = sp ? (sp.title || sp.id) : coord;
-    mount('<div class="wrap wide"><div class="row" style="margin-bottom:.4rem">' + ibtn('', 'back', t('comm_title')) + '<h1 style="margin:0">' + esc(title) + '</h1></div>' +
+    mount('<div class="wrap wide"><div class="row" style="margin-bottom:.4rem;justify-content:space-between"><div class="row">' + ibtn('', 'back', t('comm_title')) + '<h1 style="margin:0">' + esc(title) + '</h1></div>' + (me.hasKey ? ibtn('commcall', 'video', t('nav_call')) : '') + '</div>' +
       '<div class="tabs"><a class="tab ' + (tab === 'feed' ? 'on' : '') + '" data-go="comm/' + encodeURIComponent(coord) + '/feed">' + esc(t('comm_lobby')) + '</a><a class="tab ' + (tab === 'gov' ? 'on' : '') + '" data-go="comm/' + encodeURIComponent(coord) + '/gov">' + esc(t('comm_gov')) + '</a></div>' +
       (me.hasKey ? '<div class="row" style="margin-bottom:.8rem"><button class="ghost" id="join">' + esc(t('comm_join')) + '</button><span class="mut" id="mem"></span></div>' : '') +
       '<div id="cbody"></div></div>', function () {
@@ -696,6 +699,7 @@
         // members
         query({ kinds: [1], '#t': [joinTopic], limit: 500 }).then(function (evs) { var m = {}; evs.forEach(function (e) { m[e.pubkey] = 1; }); var el = document.getElementById('mem'); if (el) el.textContent = Object.keys(m).length + ' ' + t('comm_members'); });
         if (me.hasKey) document.getElementById('join').onclick = async function () { try { await publish({ kind: 1, content: '', tags: [['t', joinTopic]], created_at: nows() }); toast(t('comm_joined')); } catch (e) {} };
+        if (me.hasKey) document.getElementById('commcall').onclick = async function () { var back = location.hash; try { await publish({ kind: 1, content: CALL_MARK + me.pubkey, tags: [['t', topic]], created_at: nows() }); } catch (e) {} runCall(me.pubkey, true, back); };
         if (tab === 'gov') govBody(coord, govTopic); else commFeed(topic);
       });
   }
@@ -712,7 +716,8 @@
     var box = document.getElementById('cfeed'); if (!box) return;
     try { var evs = (await query({ kinds: [1], '#t': [topic], limit: 100 })).filter(function (e) { return hasTag(e, topic) && !spammy(e); }).sort(function (a, b) { return b.created_at - a.created_at; });
       if (!evs.length) { box.innerHTML = '<div class="empty">' + esc(t('feed_empty')) + '</div>'; return; }
-      box.innerHTML = evs.map(function (e) { return '<div class="card"><span class="who" data-pk="' + esc(e.pubkey) + '">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div>' + postImg(e) + '</div>'; }).join('');
+      box.innerHTML = evs.map(function (e) { var cr = callRoom(e.content); var txt = cr ? '<button class="ghost calljoin" data-room="' + esc(cr) + '">' + icon('video') + ' ' + esc(t('nav_call')) + '</button>' : esc(e.content); return '<div class="card"><span class="who" data-pk="' + esc(e.pubkey) + '">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + txt + '</div>' + postImg(e) + '</div>'; }).join('');
+      box.querySelectorAll('.calljoin').forEach(function (b) { b.onclick = function () { var r = b.dataset.room; runCall(r, r === me.pubkey, location.hash); }; });
       var pks = {}; evs.forEach(function (e) { pks[e.pubkey] = 1; }); Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { if (p && p.name) box.querySelectorAll('.who[data-pk="' + pk + '"]').forEach(function (w) { w.textContent = p.name; }); }); });
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
@@ -745,16 +750,16 @@
   /* ---------- Звонок (host-star, как в расширении) ---------- */
   var STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }];
   var CALL_KIND = 21000;
+  // звонок не отдельная вкладка: он начинается из диалога или сообщества. Сюда попадают
+  // по ссылке-приглашению #/call/<room> (кнопка «войти в звонок» в чате).
   function vCall() {
-    if (!me.hasKey) { mount('<div class="wrap"><h1>' + esc(t('nav_call')) + '</h1><div class="card mut">' + esc(t('call_need')) + '</div></div>'); return; }
-    mount('<div class="wrap"><h1>' + esc(t('nav_call')) + '</h1>' +
-      '<div class="card"><button id="cstart">' + esc(t('call_start')) + '</button></div>' +
-      '<div class="card"><label>' + esc(t('call_join')) + '</label><div class="row"><input id="ccode" placeholder="' + esc(t('call_code_ph')) + '" style="flex:1;margin:0">' + ibtn('cjoin', 'go', t('call_join')) + '</div><div class="msg" id="ccm"></div></div></div>', function () {
-        document.getElementById('cstart').onclick = function () { runCall(me.pubkey, true); };
-        document.getElementById('cjoin').onclick = function () { var v = (val('ccode') || '').trim().toLowerCase(); var m = v.match(/[0-9a-f]{64}/); if (m) v = m[0]; if (!/^[0-9a-f]{64}$/.test(v)) { setMsg('ccm', t('bad_key'), 'err'); return; } runCall(v, v === me.pubkey); };
-      });
+    var room = route().parts[1];
+    if (me.hasKey && room && /^[0-9a-f]{64}$/.test(room)) { runCall(room, room === me.pubkey, '#/messenger'); return; }
+    go('messenger');
   }
-  function runCall(ROOM, IS_HOST) {
+  var CALL_MARK = 'scz:call:';
+  function callRoom(c) { var m = /^scz:call:([0-9a-f]{64})$/.exec((c || '').trim()); return m ? m[1] : null; }
+  function runCall(ROOM, IS_HOST, back) {
     var ME = me.pubkey, peers = new Map(), streamOwner = new Map(), tiles = new Map(), localVideoSenders = new Set();
     var localStream = null, camTrack = null, screenTrack = null, sharing = false, micOn = true, camOn = true, sig = null, stopped = false, helloIv = null;
     mount('<div class="wrap wide"><div class="row" style="justify-content:space-between;margin-bottom:.6rem"><div class="row">' + ibtn('cinvite', 'copy', t('call_invite')) + '<span class="mut" id="chint" style="font-size:.85rem"></span></div></div>' +
@@ -799,7 +804,7 @@
     function toggleCam() { camOn = !camOn; if (camTrack) camTrack.enabled = camOn; controls(); }
     function controls() { var mic = document.getElementById('mic'), cam = document.getElementById('cam'), scr = document.getElementById('scr'); if (mic) mic.textContent = micOn ? t('mic_on') : t('mic_off'); if (cam) cam.textContent = camOn ? t('cam_on') : t('cam_off'); if (scr) scr.textContent = sharing ? t('screen_stop') : t('screen_share'); }
     function endByHost() { var m = document.getElementById('cmsg2'); if (m) m.textContent = t('leave'); stop(false); }
-    function stop(announce) { if (stopped) return; stopped = true; clearInterval(helloIv); if (announce) { try { send({ t: 'bye' }); } catch (e) {} } try { if (localStream) localStream.getTracks().forEach(function (t2) { t2.stop(); }); } catch (e) {} for (var pr of peers) { try { pr[1].pc.close(); } catch (e) {} } peers.clear(); setTimeout(function () { try { if (sig) sig.close(); } catch (e) {} }, 300); go('call'); }
+    function stop(announce) { if (stopped) return; stopped = true; clearInterval(helloIv); if (announce) { try { send({ t: 'bye' }); } catch (e) {} } try { if (localStream) localStream.getTracks().forEach(function (t2) { t2.stop(); }); } catch (e) {} for (var pr of peers) { try { pr[1].pc.close(); } catch (e) {} } peers.clear(); setTimeout(function () { try { if (sig) sig.close(); } catch (e) {} }, 300); location.hash = back || '#/messenger'; }
     async function boot() {
       try { localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 640, height: 480 } }); }
       catch (e) { try { localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); camOn = false; toast(t('call_audio')); } catch (e2) { var m = document.getElementById('cmsg2'); if (m) { m.textContent = t('call_nomedia'); m.className = 'msg err'; } return; } }

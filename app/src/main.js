@@ -6,7 +6,7 @@ const invoke = (c, a) => window.__TAURI__.core.invoke(c, a);
 const DICT = {
   ru: {
     open: 'Открыть SCZ', accounts: 'Аккаунты', active: 'активный', create: 'Создать аккаунт',
-    add_ph: 'приватный ключ (64 hex)', add: 'Добавить', bad_key: 'Ключ должен быть 64 hex.',
+    have_key: 'Уже есть ключ? Импортируй:', add_ph: 'приватный ключ (64 hex)', add: 'Импортировать', bad_key: 'Ключ должен быть 64 hex.',
     backup_t: 'Сохрани ключ', backup_w: 'Потеряешь ключ, потеряешь личность. Скопируй и спрячь.', done: 'Готово', copied: 'Скопировано',
     storage: 'Хранилище', used: 'занято', accs: 'аккаунтов', notif: 'Уведомления',
     forget: 'Забыть активный', forget_q: 'Забыть ключ активного аккаунта? Без бэкапа не вернуть.',
@@ -14,7 +14,7 @@ const DICT = {
   },
   en: {
     open: 'Open SCZ', accounts: 'Accounts', active: 'active', create: 'Create account',
-    add_ph: 'private key (64 hex)', add: 'Add', bad_key: 'Key must be 64 hex.',
+    have_key: 'Already have a key? Import:', add_ph: 'private key (64 hex)', add: 'Import', bad_key: 'Key must be 64 hex.',
     backup_t: 'Back up your key', backup_w: 'Lose the key, lose the identity. Copy and store it.', done: 'Done', copied: 'Copied',
     storage: 'Storage', used: 'used', accs: 'accounts', notif: 'Notifications',
     forget: 'Forget active', forget_q: 'Forget the active account key? No backup, no return.',
@@ -86,7 +86,9 @@ function render() {
 
       <div class="card"><div class="ch">${esc(t('accounts'))}</div>
         <div id="accs">${accHtml}</div>
-        <div class="row"><input id="addk" placeholder="${esc(t('add_ph'))}" autocomplete="off" spellcheck="false">${ib('addbtn', 'add', t('add'))}${ib('newbtn', 'plus', t('create'))}</div>
+        <button class="pri" id="newbtn" style="width:100%;margin-top:.7rem">${icon('plus')}<span>${esc(t('create'))}</span></button>
+        <div class="mut" style="font-size:.82rem;margin:.8rem 0 .4rem">${esc(t('have_key'))}</div>
+        <div class="row"><input id="addk" placeholder="${esc(t('add_ph'))}" autocomplete="off" spellcheck="false"><button class="ghost" id="addbtn">${esc(t('add'))}</button></div>
         <div class="msg" id="amsg"></div>
       </div>
 
