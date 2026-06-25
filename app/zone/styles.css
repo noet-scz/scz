@@ -115,3 +115,30 @@ button:disabled{opacity:.5;cursor:default}
   .msgr{grid-template-columns:1fr}
   .feed{max-height:46vh}
 }
+
+/* иконки и иконка-кнопки */
+.ic{display:block;vertical-align:middle}
+.iconbtn{background:var(--panel2);border:1px solid var(--bd2);color:var(--mut);border-radius:10px;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 40px;padding:0}
+.iconbtn:hover{border-color:var(--acc);color:var(--fg);background:var(--panel2)}
+.iconbtn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.iconbtn.pri:hover{background:#6b4dff}
+
+/* поиск (главная) */
+.searchpage{display:flex;flex-direction:column;align-items:center;max-width:42rem;margin:0 auto;padding:clamp(2.5rem,11vh,6rem) 1.2rem 4rem}
+.mark{display:flex;align-items:center;gap:.7rem;margin-bottom:1.6rem}
+.mark img{width:48px;height:48px}.mark h1{font-size:2.4rem;margin:0;font-weight:700;letter-spacing:-.5px}
+.sb{width:100%;display:flex;gap:.5rem}
+.sb input{flex:1;font-size:1.05rem;margin:0;border-radius:14px;padding:.9rem 1.1rem}
+.sb .iconbtn{width:46px;height:auto;align-self:stretch}
+#sres{width:100%;margin-top:.9rem}
+.sr{display:flex;align-items:center;gap:.7rem;padding:.6rem .7rem;border-radius:12px;cursor:pointer}
+.sr:hover{background:var(--panel2)}
+.sr img{width:36px;height:36px;border-radius:50%;flex:0 0 36px}
+.srn{font-weight:650}.srh{color:var(--mut);font-size:.85rem;font-family:ui-monospace,Menlo,monospace}
+.srt{color:var(--mut);font-size:.83rem;margin-top:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* сайт: единая шапка + контент на весь экран под ней */
+.siteholder{height:100vh;display:flex;flex-direction:column}
+.siteholder .hdr{flex:0 0 auto}
+.sitewrap{flex:1;min-height:0;display:flex}
+.sitefull{flex:1;width:100%;border:0;background:#fff}

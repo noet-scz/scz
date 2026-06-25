@@ -9,6 +9,7 @@
   var DICT = {
     ru: {
       nav_msg: 'Мессенджер', nav_sites: 'Домены', nav_me: 'Профиль', nav_set: 'Настройки',
+      search_ph: 'искать в зоне', searching: 'ищу…', nothing: 'Ничего не нашлось',
       guest: 'Гость', create_id: 'Создать личность', no_tag: 'имя не занято',
       id_title: 'Личность', have_key: 'Уже есть ключ?', import_ph: 'приватный ключ (64 hex)', import: 'Импортировать', bad_key: 'Ключ должен быть 64 hex.',
       backup_t: 'Сохрани ключ', backup_w: 'Потеряешь ключ, потеряешь личность. Скопируй и спрячь.',
@@ -29,6 +30,7 @@
     },
     en: {
       nav_msg: 'Messenger', nav_sites: 'Domains', nav_me: 'Profile', nav_set: 'Settings',
+      search_ph: 'search the zone', searching: 'searching…', nothing: 'Nothing found',
       guest: 'Guest', create_id: 'Create identity', no_tag: 'no name yet',
       id_title: 'Identity', have_key: 'Already have a key?', import_ph: 'private key (64 hex)', import: 'Import', bad_key: 'Key must be 64 hex.',
       backup_t: 'Back up your key', backup_w: 'Lose the key, lose the identity. Copy and store it.',
@@ -74,6 +76,17 @@
   function toast(s) { var el = document.querySelector('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = s; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(function () { el.classList.remove('on'); }, 2200); }
   function copy(s) { return navigator.clipboard.writeText(s).then(function () { return true; }, function () { return false; }); }
   function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
+
+  // иконки (свои, не lucide). Кнопка с понятной иконкой = иконка, не текст.
+  var IC = {
+    back: '<path d="M15 18l-6-6 6-6"/>', copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+    save: '<path d="M5 4h11l3 3v13H5z"/><path d="M9 4v5h6"/><rect x="8" y="13" width="8" height="5"/>',
+    check: '<path d="M5 12l4 4 10-10"/>', send: '<path d="M5 12l15-7-6 15-3-6z"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/>',
+    plus: '<path d="M12 6v12"/><path d="M6 12h12"/>', edit: '<path d="M4 20l4-1L18 7l-3-3L4 16z"/>', open: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M19 13v6H5V5h6"/>',
+    switch: '<path d="M4 9h13l-3-3"/><path d="M20 15H7l3 3"/>', go: '<path d="M5 12h13"/><path d="M13 6l6 6-6 6"/>',
+  };
+  function icon(n, s) { return '<svg class="ic" width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (IC[n] || '') + '</svg>'; }
+  function ibtn(id, ic, title) { return '<button class="iconbtn"' + (id ? ' id="' + id + '"' : '') + ' title="' + esc(title || '') + '">' + icon(ic) + '</button>'; }
 
   /* npub (bech32) для тега */
   var CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
@@ -129,8 +142,8 @@
   }
 
   /* ---------- роутер/шелл ---------- */
-  var ROUTES = ['messenger', 'sites', 'profile', 'settings'];
-  function route() { var raw = (location.hash || '').replace(/^#\/?/, ''); var parts = raw ? raw.split('/').map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } }) : []; return { name: ROUTES.indexOf(parts[0]) >= 0 ? parts[0] : 'messenger', parts: parts }; }
+  var ROUTES = ['search', 'messenger', 'sites', 'profile', 'settings'];
+  function route() { var raw = (location.hash || '').replace(/^#\/?/, ''); var parts = raw ? raw.split('/').map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } }) : []; return { name: ROUTES.indexOf(parts[0]) >= 0 ? parts[0] : 'search', parts: parts }; }
   function go() { location.hash = '#/' + Array.prototype.slice.call(arguments).map(encodeURIComponent).join('/'); }
 
   function header() {
@@ -139,7 +152,7 @@
     var nav = [['messenger', 'nav_msg'], ['sites', 'nav_sites'], ['profile', 'nav_me'], ['settings', 'nav_set']];
     var chip = '<a class="hchip" data-go="profile">' + avImg(me.pubkey, nick, me.profile && me.profile.picture, 27) +
       '<span class="ci"><span class="nm">' + esc(nick) + '</span>' + (me.hasKey ? '<span class="tg">' + esc(tagText(me.handle, me.pubkey)) + '</span>' : '<span class="tg">' + esc(t('create_id')) + '</span>') + '</span></a>';
-    return '<header class="hdr"><a class="hbrand" data-go="messenger"><img src="/logo.svg"><span>SCZ</span></a>' +
+    return '<header class="hdr"><a class="hbrand" data-go="search"><img src="/logo.svg"><span>SCZ</span></a>' +
       '<nav class="hnav">' + nav.map(function (n) { return '<a data-go="' + n[0] + '" class="' + (r === n[0] ? 'on' : '') + '">' + esc(t(n[1])) + '</a>'; }).join('') + '</nav>' + chip + '</header>';
   }
   function mount(inner, after) {
@@ -153,6 +166,44 @@
   function noKey(e) { return e && String(e.message || e).indexOf('no_key') >= 0; }
   function setMsg(id, txt, cls) { var el = document.getElementById(id); if (el) { el.textContent = txt || ''; el.className = 'msg ' + (cls || ''); } }
 
+  /* ---------- поиск (главная, как в расширении) ---------- */
+  var _index = null;
+  function stripHtml(h) { return String(h || '').replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim(); }
+  async function buildIndex() {
+    if (_index) return _index;
+    var evs = await query([{ kinds: [KIND.claim], '#t': ['noet-name'], limit: 1000 }, { kinds: [0], limit: 1000 }, { kinds: [KIND.page], limit: 1000 }]);
+    var prof = {}; evs.filter(function (e) { return e.kind === 0; }).forEach(function (e) { if (!prof[e.pubkey] || e.created_at > (prof[e.pubkey]._ts || 0)) { try { var p = JSON.parse(e.content); p._ts = e.created_at; prof[e.pubkey] = p; } catch (x) {} } });
+    var owner = {};
+    evs.filter(function (e) { return e.kind === KIND.claim && /\.(me|nt)$/i.test((e.tags.find(function (t) { return t[0] === 'd'; }) || [])[1] || ''); }).forEach(function (c) { var n = (c.tags.find(function (t) { return t[0] === 'd'; }) || [])[1]; if (!owner[n] || c.created_at < owner[n].ts) owner[n] = { pk: c.pubkey, ts: c.created_at }; });
+    var pageBy = {};
+    evs.filter(function (e) { return e.kind === KIND.page; }).forEach(function (e) { var n = (e.tags.find(function (t) { return t[0] === 'd'; }) || [])[1]; if (!n || !owner[n] || e.pubkey !== owner[n].pk) return; if (pageBy[n] && pageBy[n]._ts > e.created_at) return; var txt = ''; var c = e.content || ''; try { var o = JSON.parse(c); txt = o.html ? stripHtml(o.html) : ''; } catch (x) { txt = stripHtml(c); } pageBy[n] = { text: txt.slice(0, 1500), _ts: e.created_at }; });
+    _index = Object.keys(owner).map(function (n) { var p = prof[owner[n].pk] || {}, pg = pageBy[n] || {}; return { name: n, handle: n.replace(/\.(me|nt)$/i, ''), dn: p.name || n.replace(/\.(me|nt)$/i, ''), about: p.about || '', text: pg.text || '', pk: owner[n].pk, pic: p.picture }; });
+    return _index;
+  }
+  function score(m, q) { if (m.handle === q) return 100; if (m.handle.indexOf(q) === 0) return 85; if (m.handle.indexOf(q) >= 0) return 70; if ((m.dn || '').toLowerCase().indexOf(q) >= 0) return 55; if ((m.about || '').toLowerCase().indexOf(q) >= 0) return 30; if ((m.text || '').toLowerCase().indexOf(q) >= 0) return 18; return 0; }
+  function vSearch() {
+    mount('<div class="searchpage"><div class="mark"><img src="/logo.svg"><h1>SCZ</h1></div>' +
+      '<form class="sb" id="sf"><input id="q" placeholder="' + esc(t('search_ph')) + '" autocomplete="off" autofocus>' + ibtn('', 'search', t('search_ph')) + '</form>' +
+      '<div id="sres"></div></div>', function () {
+        var box = document.getElementById('sres'), inp = document.getElementById('q');
+        document.querySelector('#sf .iconbtn').onclick = function (e) { e.preventDefault(); doSearch(inp.value); };
+        document.getElementById('sf').onsubmit = function (e) { e.preventDefault(); doSearch(inp.value); };
+        var deb; inp.addEventListener('input', function () { clearTimeout(deb); deb = setTimeout(function () { doSearch(inp.value); }, 250); });
+        async function doSearch(q) {
+          q = (q || '').trim().toLowerCase(); if (!q) { box.innerHTML = ''; return; }
+          box.innerHTML = '<div class="empty">' + esc(t('searching')) + '</div>';
+          try {
+            var idx = await buildIndex();
+            var hit = idx.map(function (m) { return { m: m, s: score(m, q) }; }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; }).map(function (x) { return x.m; });
+            if (!hit.length) { box.innerHTML = '<div class="empty">' + esc(t('nothing')) + '</div>'; return; }
+            box.innerHTML = hit.slice(0, 20).map(function (m) { return '<div class="sr" data-name="' + esc(m.name) + '">' + avImg(m.pk, m.dn, m.pic, 36) + '<div style="min-width:0"><div><span class="srn">' + esc(m.dn) + '</span> <span class="srh">' + esc(m.name) + '</span></div>' + (m.text ? '<div class="srt">' + esc(m.text.slice(0, 90)) + '</div>' : '') + '</div></div>'; }).join('');
+            applyAvatars();
+            box.querySelectorAll('.sr').forEach(function (r) { r.onclick = function () { go('sites', 'open', r.dataset.name); }; });
+          } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
+        }
+      });
+  }
+
   /* ---------- профиль ---------- */
   function vProfile() {
     if (!me.hasKey) return vProfileNew();
@@ -164,8 +215,8 @@
       '<label>' + esc(t('nick')) + '</label><input id="pn" placeholder="' + esc(t('nick_ph')) + '" value="' + esc((me.profile && me.profile.name) || '') + '">' +
       '<label>' + esc(t('avatar')) + '</label><input id="pp" placeholder="' + esc(t('avatar_ph')) + '" value="' + esc((me.profile && me.profile.picture) || '') + '">' +
       '<label>' + esc(t('about')) + '</label><textarea id="pa" placeholder="' + esc(t('about_ph')) + '">' + esc((me.profile && me.profile.about) || '') + '</textarea>' +
-      '<div class="row"><button id="psave">' + esc(t('save')) + '</button><span class="msg" id="pmsg"></span></div></div>' +
-      '<div class="card"><div class="row" style="justify-content:space-between"><span class="mut">' + esc(t('pubkey')) + '</span><button class="ghost" id="cpk">' + esc(t('copy')) + '</button></div><div class="mono" style="margin-top:.4rem">' + esc(me.pubkey) + '</div></div>' +
+      '<div class="row"><button class="iconbtn pri" id="psave" title="' + esc(t('save')) + '">' + icon('save') + '</button><span class="msg" id="pmsg"></span></div></div>' +
+      '<div class="card"><div class="row" style="justify-content:space-between"><span class="mut">' + esc(t('pubkey')) + '</span>' + ibtn('cpk', 'copy', t('copy')) + '</div><div class="mono" style="margin-top:.4rem">' + esc(me.pubkey) + '</div></div>' +
       '<div class="card"><div style="font-weight:700;margin-bottom:.7rem">' + esc(t('rep_t')) + '</div><div class="rep" id="rep"><div class="spin"></div></div></div>' +
       '</div>', function () {
         document.getElementById('cpk').onclick = function () { copy(me.pubkey).then(function () { toast(t('copied')); }); };
@@ -198,7 +249,7 @@
       });
   }
   function vBackup(nsec) {
-    mount('<div class="wrap"><h1>' + esc(t('backup_t')) + '</h1><p class="mut">' + esc(t('backup_w')) + '</p><div class="card"><div class="mono" style="margin-bottom:.7rem">' + esc(nsec) + '</div><div class="row"><button id="cp">' + esc(t('copy')) + '</button><button class="ghost" id="dn">' + esc(t('done')) + '</button></div></div></div>', function () {
+    mount('<div class="wrap"><h1>' + esc(t('backup_t')) + '</h1><p class="mut">' + esc(t('backup_w')) + '</p><div class="card"><div class="row" style="align-items:flex-start"><div class="mono" style="flex:1">' + esc(nsec) + '</div>' + ibtn('cp', 'copy', t('copy')) + '</div><div class="row" style="margin-top:.7rem"><button id="dn">' + esc(t('done')) + '</button></div></div></div>', function () {
       document.getElementById('cp').onclick = function () { copy(nsec).then(function () { toast(t('copied')); }); };
       document.getElementById('dn').onclick = function () { go('profile'); render(); };
     });
@@ -232,7 +283,7 @@
       if (!list.length) { box.innerHTML = '<div class="mut">' + esc(t('no_names')) + '</div>'; return; }
       box.innerHTML = list.map(function (pk) {
         return '<div class="acc" data-pk="' + esc(pk) + '">' + avImg(pk, '', '', 34) + '<div style="min-width:0"><div class="nm" data-nm="' + esc(pk) + '">' + esc(npubShort(pk)) + '</div><div class="tg">' + esc(npubShort(pk)) + '</div></div>' +
-          (pk === active ? '<span class="badge">' + esc(t('set_active')) + '</span>' : '<button class="ghost" data-sw="' + esc(pk) + '" style="margin-left:auto">' + esc(t('set_switch')) + '</button>') + '</div>';
+          (pk === active ? '<span class="badge">' + esc(t('set_active')) + '</span>' : '<button class="iconbtn" data-sw="' + esc(pk) + '" style="margin-left:auto" title="' + esc(t('set_switch')) + '">' + icon('switch') + '</button>') + '</div>';
       }).join('');
       applyAvatars();
       box.querySelectorAll('[data-sw]').forEach(function (b) { b.onclick = async function () { await api.switch(b.dataset.sw); await refreshMe(); render(); }; });
@@ -255,7 +306,7 @@
       '<div id="chanlist"><div class="spin" style="margin:.5rem auto"></div></div>' +
       '<div id="newch" style="display:none;margin-top:.5rem"><input id="nr" placeholder="' + esc(t('room_ph')) + '"><button class="ghost" id="mkroom" style="width:100%">' + esc(t('create')) + '</button></div></aside>' +
       '<section class="chat card"><div class="chat-h">' + esc(title) + '</div><div id="list" class="feed"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div>' +
-      (me.hasKey ? '<div class="composer"><textarea id="txt" placeholder="' + esc(t('post_ph')) + '"></textarea><div class="row" style="justify-content:flex-end"><span class="msg" id="smsg" style="flex:1"></span><button id="send">' + esc(t('send')) + '</button></div></div>' : '<div class="composer mut">' + esc(t('need_id')) + '</div>') +
+      (me.hasKey ? '<div class="composer"><textarea id="txt" placeholder="' + esc(t('post_ph')) + '"></textarea><div class="row" style="justify-content:flex-end"><span class="msg" id="smsg" style="flex:1"></span><button class="iconbtn pri" id="send" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '<div class="composer mut">' + esc(t('need_id')) + '</div>') +
       '</section></div></div>', function () {
         renderChannels(room);
         document.getElementById('addch').onclick = function () { var n = document.getElementById('newch'); n.style.display = n.style.display === 'none' ? 'block' : 'none'; };
@@ -301,7 +352,7 @@
     mount('<div class="wrap"><h1>' + esc(t('nav_sites')) + '</h1>' +
       (me.hasKey ? '<div class="card"><label>' + esc(t('claim_t')) + '</label><div class="row"><input id="cn" placeholder="' + esc(t('claim_ph')) + '" style="flex:1;margin:0"><button id="claim">' + esc(t('claim')) + '</button></div><div class="msg" id="cmsg"></div></div>' +
         '<h2>' + esc(t('my_names')) + '</h2><div class="card" id="names"><div class="spin"></div></div>' : '<div class="card mut">' + esc(t('need_id')) + '</div>') +
-      '<div class="card"><label>' + esc(t('open_t')) + '</label><div class="row"><input id="on" placeholder="' + esc(t('open_ph')) + '" style="flex:1;margin:0"><button class="ghost" id="ob">' + esc(t('go')) + '</button></div></div>' +
+      '<div class="card"><label>' + esc(t('open_t')) + '</label><div class="row"><input id="on" placeholder="' + esc(t('open_ph')) + '" style="flex:1;margin:0">' + ibtn('ob', 'go', t('go')) + '</div></div>' +
       '</div>', function () {
         document.getElementById('ob').onclick = function () { var v = slugName(val('on')); if (v) go('sites', 'open', v); };
         if (me.hasKey) {
@@ -317,16 +368,17 @@
       var names = {}; evs.forEach(function (e) { var d = (e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1]; if (d) names[d] = 1; });
       var list = Object.keys(names).sort();
       if (!list.length) { box.innerHTML = '<div class="empty">' + esc(t('no_names')) + '</div>'; return; }
-      box.innerHTML = list.map(function (n) { return '<div class="nameitem"><span class="mono" style="flex:1">' + esc(n) + '</span><button class="ghost" data-open="' + esc(n) + '">' + esc(t('open')) + '</button><button data-pub="' + esc(n) + '">' + esc(t('publish')) + '</button></div>'; }).join('');
+      box.innerHTML = list.map(function (n) { return '<div class="nameitem"><span class="mono" style="flex:1">' + esc(n) + '</span><button class="iconbtn" data-open="' + esc(n) + '" title="' + esc(t('open')) + '">' + icon('open') + '</button><button data-pub="' + esc(n) + '">' + esc(t('publish')) + '</button></div>'; }).join('');
       box.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { go('sites', 'open', b.dataset.open); }; });
       box.querySelectorAll('[data-pub]').forEach(function (b) { b.onclick = function () { go('sites', 'pub', b.dataset.pub); }; });
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
   function vPublish(name) {
-    mount('<div class="wrap"><div class="row" style="margin-bottom:.7rem"><button class="ghost" data-go="sites">← ' + esc(t('back')) + '</button></div>' +
-      '<h1>' + esc(t('pub_t')) + ' ' + esc(name) + '</h1>' +
+    mount('<div class="wrap"><div class="row" style="margin-bottom:.7rem">' + ibtn('', 'back', t('back')) + '<span class="mono">' + esc(name) + '</span></div>' +
+      '<h1>' + esc(t('pub_t')) + '</h1>' +
       '<div class="card"><textarea id="phtml" class="code" placeholder="' + esc(t('pub_html')) + '">&lt;!doctype html&gt;\n&lt;h1&gt;Привет, зона&lt;/h1&gt;</textarea>' +
-      '<div class="row"><button id="pub">' + esc(t('publish')) + '</button><button class="ghost" id="popen">' + esc(t('open')) + '</button><span class="msg" id="pmsg"></span></div></div></div>', function () {
+      '<div class="row"><button id="pub">' + esc(t('publish')) + '</button>' + ibtn('popen', 'open', t('open')) + '<span class="msg" id="pmsg"></span></div></div></div>', function () {
+        document.querySelector('.wrap .iconbtn').onclick = function () { go('sites'); };
         query({ kinds: [KIND.page], '#d': [name], authors: [me.pubkey], limit: 1 }).then(function (evs) { if (evs[0] && evs[0].content) document.getElementById('phtml').value = evs[0].content; });
         document.getElementById('popen').onclick = function () { go('sites', 'open', name); };
         document.getElementById('pub').onclick = async function () { var html = val('phtml'); if (!html) return; setMsg('pmsg', '…'); try { await publish({ kind: KIND.page, content: html, tags: [['d', name]], created_at: nows() }); setMsg('pmsg', t('published'), 'ok'); } catch (e) { setMsg('pmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
@@ -340,9 +392,10 @@
     return c;
   }
   async function vSiteView(name) {
-    var app = document.getElementById('app');
-    app.innerHTML = '<div class="siteview"><div class="sitebar"><button class="ghost" id="sback">← ' + esc(t('back')) + '</button><span class="mono">' + esc(name) + '</span><span style="width:5rem"></span></div><div class="sitewrap" id="site"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
-    document.getElementById('sback').onclick = function () { go('sites'); };
+    // та же шапка, что везде (без лишнего), + сайт на весь экран под ней
+    document.getElementById('app').innerHTML = '<div class="siteholder">' + header() + '<div class="sitewrap" id="site"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div></div>';
+    document.querySelectorAll('[data-go]').forEach(function (a) { a.onclick = function () { go(a.dataset.go); }; });
+    applyAvatars();
     var box = document.getElementById('site');
     try {
       var claims = await query({ kinds: [KIND.claim], '#d': [name], limit: 50 }); claims.sort(function (a, b) { return a.created_at - b.created_at; });
@@ -360,7 +413,7 @@
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
 
-  function render() { var r = route().name; if (r === 'sites') return vSites(); if (r === 'profile') return vProfile(); if (r === 'settings') return vSettings(); vMessenger(); }
+  function render() { var r = route().name; if (r === 'messenger') return vMessenger(); if (r === 'sites') return vSites(); if (r === 'profile') return vProfile(); if (r === 'settings') return vSettings(); vSearch(); }
   window.addEventListener('hashchange', render);
   (async function boot() { await refreshMe(); render(); })();
 })();

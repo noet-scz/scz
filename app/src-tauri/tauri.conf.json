@@ -11,8 +11,8 @@
     "windows": [
       {
         "title": "SCZ — узел",
-        "width": 560,
-        "height": 640,
+        "width": 480,
+        "height": 800,
         "minWidth": 360,
         "minHeight": 480
       }

@@ -11,32 +11,32 @@ use tiny_http::{Header, Method, Request, Response, Server};
 
 static ZONE: Dir = include_dir!("$CARGO_MANIFEST_DIR/../zone");
 
-fn key_file(cfg: &Path) -> PathBuf {
+pub fn key_file(cfg: &Path) -> PathBuf {
     cfg.join("identity.key")
 }
-fn read_key(cfg: &Path) -> Option<String> {
+pub fn read_key(cfg: &Path) -> Option<String> {
     std::fs::read_to_string(key_file(cfg))
         .ok()
         .map(|s| s.trim().to_lowercase())
         .filter(|s| s.len() == 64 && s.chars().all(|c| c.is_ascii_hexdigit()))
 }
-fn write_key(cfg: &Path, sk: &str) -> std::io::Result<()> {
+pub fn write_key(cfg: &Path, sk: &str) -> std::io::Result<()> {
     std::fs::create_dir_all(cfg)?;
     std::fs::write(key_file(cfg), sk)
 }
 
-fn accounts_dir(cfg: &Path) -> PathBuf {
+pub fn accounts_dir(cfg: &Path) -> PathBuf {
     cfg.join("accounts")
 }
 // сохранить ключ как аккаунт (файл accounts/<pubkey>.key), вернуть pubkey
-fn save_account(cfg: &Path, sk: &str) -> Result<String, String> {
+pub fn save_account(cfg: &Path, sk: &str) -> Result<String, String> {
     let pk = identity::pubkey_hex(sk)?;
     let dir = accounts_dir(cfg);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     std::fs::write(dir.join(format!("{}.key", pk)), sk).map_err(|e| e.to_string())?;
     Ok(pk)
 }
-fn list_accounts(cfg: &Path) -> Vec<String> {
+pub fn list_accounts(cfg: &Path) -> Vec<String> {
     let mut out = Vec::new();
     if let Ok(rd) = std::fs::read_dir(accounts_dir(cfg)) {
         for e in rd.flatten() {
@@ -51,7 +51,7 @@ fn list_accounts(cfg: &Path) -> Vec<String> {
     out.sort();
     out
 }
-fn dir_size(p: &Path) -> u64 {
+pub fn dir_size(p: &Path) -> u64 {
     let mut total = 0u64;
     if let Ok(rd) = std::fs::read_dir(p) {
         for e in rd.flatten() {
