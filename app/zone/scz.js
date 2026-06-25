@@ -14,7 +14,7 @@
       id_title: 'Личность', have_key: 'Уже есть ключ?', import_ph: 'приватный ключ (64 hex)', import: 'Импортировать', bad_key: 'Ключ должен быть 64 hex.',
       backup_t: 'Сохрани ключ', backup_w: 'Потеряешь ключ, потеряешь личность. Скопируй и спрячь.',
       copy: 'Скопировать', copied: 'Скопировано', done: 'Готово',
-      nick: 'Имя', nick_ph: 'как тебя показывать', about: 'О себе', about_ph: 'пара слов о тебе', avatar: 'Аватар', avatar_ph: 'ссылка на картинку', save: 'Сохранить', saved: 'Сохранено.',
+      nick: 'Имя', nick_ph: 'как тебя показывать', about: 'О себе', about_ph: 'пара слов о тебе', avatar: 'Аватар', avatar_ph: 'ссылка на картинку', save: 'Сохранить', saved: 'Сохранено.', change_tag: 'сменить тег', tag_ph: 'тег (имя)',
       pubkey: 'Публичный ключ', show_key: 'Показать ключ', hide: 'Спрятать',
       rep_t: 'Репутация', rep_posts: 'сообщений', rep_react: 'реакций', rep_sites: 'сайтов', rep_days: 'дней в сети', rep_score: 'счёт',
       need_id: 'Нужна личность: создай её в профиле.',
@@ -35,7 +35,7 @@
       id_title: 'Identity', have_key: 'Already have a key?', import_ph: 'private key (64 hex)', import: 'Import', bad_key: 'Key must be 64 hex.',
       backup_t: 'Back up your key', backup_w: 'Lose the key, lose the identity. Copy and store it.',
       copy: 'Copy', copied: 'Copied', done: 'Done',
-      nick: 'Name', nick_ph: 'how to show you', about: 'About', about_ph: 'a few words about you', avatar: 'Avatar', avatar_ph: 'image link', save: 'Save', saved: 'Saved.',
+      nick: 'Name', nick_ph: 'how to show you', about: 'About', about_ph: 'a few words about you', avatar: 'Avatar', avatar_ph: 'image link', save: 'Save', saved: 'Saved.', change_tag: 'change tag', tag_ph: 'tag (name)',
       pubkey: 'Public key', show_key: 'Show key', hide: 'Hide',
       rep_t: 'Reputation', rep_posts: 'messages', rep_react: 'reactions', rep_sites: 'sites', rep_days: 'days in network', rep_score: 'score',
       need_id: 'Identity needed: create one in profile.',
@@ -63,27 +63,32 @@
     var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='76' height='76'><defs><linearGradient id='a' x1='0' y1='0' x2='76' y2='76'><stop offset='0' stop-color='hsl(" + hue + " 65% 56%)'/><stop offset='1' stop-color='hsl(" + h2 + " 60% 42%)'/></linearGradient></defs><rect width='76' height='76' rx='38' fill='url(#a)'/>" + (ch ? "<text x='38' y='51' font-family='system-ui' font-size='34' font-weight='600' fill='white' text-anchor='middle'>" + ch + "</text>" : "") + "</svg>";
     return 'data:image/svg+xml,' + encodeURIComponent(svg);
   }
-  // аватар: идентикон сразу, картинку подменяем ТОЛЬКО если она реально загрузилась
-  var _avc = 0, _avPending = [];
+  // аватар: грузим картинку напрямую; если ссылка не открылась, откат на идентикон
   function avImg(pk, nm, pic, size, cls) {
     var ident = identicon(pk, nm);
     var attrs = (cls ? 'class="' + cls + '" ' : '') + 'width="' + size + '" height="' + size + '" style="border-radius:50%;object-fit:cover"';
-    if (pic && /^(https?:|data:)/i.test(pic)) { var id = 'av' + (++_avc); _avPending.push([id, pic]); return '<img id="' + id + '" ' + attrs + ' src="' + ident + '">'; }
+    if (pic && /^(https?:|data:)/i.test(pic)) return '<img ' + attrs + ' src="' + esc(pic) + '" onerror="this.onerror=null;this.src=\'' + ident + '\'">';
     return '<img ' + attrs + ' src="' + ident + '">';
   }
-  function applyAvatars() { var p = _avPending; _avPending = []; p.forEach(function (x) { var im = new Image(); im.onload = function () { var el = document.getElementById(x[0]); if (el) el.src = x[1]; }; im.src = x[1]; }); }
+  function applyAvatars() {}
   function when(ts) { var d = new Date(ts * 1000); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
   function toast(s) { var el = document.querySelector('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = s; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(function () { el.classList.remove('on'); }, 2200); }
   function copy(s) { return navigator.clipboard.writeText(s).then(function () { return true; }, function () { return false; }); }
   function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
 
-  // иконки (свои, не lucide). Кнопка с понятной иконкой = иконка, не текст.
+  // иконки Tabler Icons (MIT). Кнопка с понятной иконкой = иконка, не текст.
   var IC = {
-    back: '<path d="M15 18l-6-6 6-6"/>', copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
-    save: '<path d="M5 4h11l3 3v13H5z"/><path d="M9 4v5h6"/><rect x="8" y="13" width="8" height="5"/>',
-    check: '<path d="M5 12l4 4 10-10"/>', send: '<path d="M5 12l15-7-6 15-3-6z"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/>',
-    plus: '<path d="M12 6v12"/><path d="M6 12h12"/>', edit: '<path d="M4 20l4-1L18 7l-3-3L4 16z"/>', open: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M19 13v6H5V5h6"/>',
-    switch: '<path d="M4 9h13l-3-3"/><path d="M20 15H7l3 3"/>', go: '<path d="M5 12h13"/><path d="M13 6l6 6-6 6"/>',
+    back: '<path d="M5 12l14 0"/><path d="M5 12l6 6"/><path d="M5 12l6 -6"/>',
+    go: '<path d="M5 12l14 0"/><path d="M13 18l6 -6"/><path d="M13 6l6 6"/>',
+    copy: '<path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666"/><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"/>',
+    save: '<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2"/><path d="M10 14a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M14 4l0 4l-6 0l0 -4"/>',
+    send: '<path d="M10 14l11 -11"/><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"/>',
+    switch: '<path d="M21 17l-18 0"/><path d="M6 10l-3 -3l3 -3"/><path d="M3 7l18 0"/><path d="M18 20l3 -3l-3 -3"/>',
+    open: '<path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"/><path d="M11 13l9 -9"/><path d="M15 4h5v5"/>',
+    plus: '<path d="M12 5l0 14"/><path d="M5 12l14 0"/>',
+    search: '<path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/>',
+    edit: '<path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
+    check: '<path d="M5 12l5 5l10 -10"/>',
   };
   function icon(n, s) { return '<svg class="ic" width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (IC[n] || '') + '</svg>'; }
   function ibtn(id, ic, title) { return '<button class="iconbtn"' + (id ? ' id="' + id + '"' : '') + ' title="' + esc(title || '') + '">' + icon(ic) + '</button>'; }
@@ -132,13 +137,19 @@
 
   var profCache = new Map();
   async function profileOf(pk) { if (profCache.has(pk)) return profCache.get(pk); var evs = await query({ kinds: [0], authors: [pk], limit: 1 }); var p = {}; try { p = evs[0] ? JSON.parse(evs[0].content) : {}; } catch (e) {} profCache.set(pk, p); return p; }
-  async function handleOf(pk) { try { var evs = await query({ kinds: [KIND.claim], authors: [pk], limit: 50 }); evs = evs.filter(function (e) { return /\.(me|nt)$/i.test((e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1] || ''); }).sort(function (a, b) { return a.created_at - b.created_at; }); return evs[0] ? ((evs[0].tags.find(function (x) { return x[0] === 'd'; }) || [])[1] || '') : ''; } catch (e) { return ''; } }
+  async function namesOf(pk) { try { var evs = await query({ kinds: [KIND.claim], authors: [pk], limit: 100 }); return evs.filter(function (e) { return /\.(me|nt)$/i.test((e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1] || ''); }).sort(function (a, b) { return a.created_at - b.created_at; }).map(function (e) { return (e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1]; }); } catch (e) { return []; } }
 
   /* ---------- состояние ---------- */
-  var me = { hasKey: false, pubkey: null, profile: null, handle: '' };
+  var me = { hasKey: false, pubkey: null, profile: null, handle: '', names: [] };
   async function refreshMe() {
-    try { var s = await api.status(); me.hasKey = !!s.hasKey; me.pubkey = s.pubkey || null; if (s.hasKey) { profCache.delete(s.pubkey); me.profile = await profileOf(s.pubkey); me.handle = await handleOf(s.pubkey); } else { me.profile = null; me.handle = ''; } }
-    catch (e) { me = { hasKey: false, pubkey: null, profile: null, handle: '' }; }
+    try {
+      var s = await api.status(); me.hasKey = !!s.hasKey; me.pubkey = s.pubkey || null;
+      if (s.hasKey) {
+        profCache.delete(s.pubkey); me.profile = await profileOf(s.pubkey); me.names = await namesOf(s.pubkey);
+        // тег = выбранное основное имя (profile.primary), иначе самое раннее
+        me.handle = (me.profile.primary && me.names.indexOf(me.profile.primary) >= 0) ? me.profile.primary : (me.names[0] || '');
+      } else { me.profile = null; me.handle = ''; me.names = []; }
+    } catch (e) { me = { hasKey: false, pubkey: null, profile: null, handle: '', names: [] }; }
   }
 
   /* ---------- роутер/шелл ---------- */
@@ -211,7 +222,7 @@
     var tag = tagText(me.handle, me.pubkey);
     mount('<div class="wrap">' +
       '<div class="card"><div class="idhead">' + avImg(me.pubkey, dn, me.profile && me.profile.picture, 76, 'av') +
-      '<div><div class="dn">' + esc(dn) + '</div><div class="tag' + (me.handle ? '' : ' none') + '">' + esc(me.handle ? tag : t('no_tag')) + '</div></div></div>' +
+      '<div style="min-width:0"><div class="dn">' + esc(dn) + '</div><div id="tagrow" class="tagrow"><span class="tag' + (me.handle ? '' : ' none') + '">' + esc(me.handle ? tag : t('no_tag')) + '</span>' + ibtn('tagedit', 'edit', t('change_tag')) + '</div></div></div>' +
       '<label>' + esc(t('nick')) + '</label><input id="pn" placeholder="' + esc(t('nick_ph')) + '" value="' + esc((me.profile && me.profile.name) || '') + '">' +
       '<label>' + esc(t('avatar')) + '</label><input id="pp" placeholder="' + esc(t('avatar_ph')) + '" value="' + esc((me.profile && me.profile.picture) || '') + '">' +
       '<label>' + esc(t('about')) + '</label><textarea id="pa" placeholder="' + esc(t('about_ph')) + '">' + esc((me.profile && me.profile.about) || '') + '</textarea>' +
@@ -221,9 +232,30 @@
       '</div>', function () {
         document.getElementById('cpk').onclick = function () { copy(me.pubkey).then(function () { toast(t('copied')); }); };
         document.getElementById('psave').onclick = async function () {
-          var meta = { name: val('pn'), about: val('pa'), picture: val('pp'), lang: lang }; setMsg('pmsg', '…');
+          var meta = Object.assign({}, me.profile || {}, { name: val('pn'), about: val('pa'), picture: val('pp'), lang: lang }); setMsg('pmsg', '…');
           try { await publish({ kind: 0, content: JSON.stringify(meta), tags: [], created_at: nows() }); profCache.delete(me.pubkey); await refreshMe(); vProfile(); toast(t('saved')); }
           catch (e) { setMsg('pmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
+        };
+        // сменить тег: выбрать/занять имя и сделать его основным (primary в профиле)
+        document.getElementById('tagedit').onclick = function () {
+          var cur = me.handle ? me.handle.replace(/\.(nt|me)$/i, '') : '';
+          var opts = (me.names || []).map(function (n) { return '<option' + (n === me.handle ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+          document.getElementById('tagrow').innerHTML = (me.names && me.names.length > 1 ? '<select id="tsel" style="width:auto;margin:0;display:inline-block">' + opts + '</select> ' : '') +
+            '<span class="tag">@</span><input id="th" value="' + esc(cur) + '" placeholder="' + esc(t('tag_ph')) + '" style="width:8rem;display:inline-block;margin:0"> ' + ibtn('tok', 'check', t('save')) + ' <span class="msg" id="tmsg" style="display:inline"></span>';
+          var th = document.getElementById('th'); th.focus();
+          var sel = document.getElementById('tsel'); if (sel) sel.onchange = function () { th.value = sel.value.replace(/\.(nt|me)$/i, ''); };
+          document.getElementById('tok').onclick = async function () {
+            var v = (val('th') || '').trim().toLowerCase().replace(/[^a-z0-9.-]+/g, '-').replace(/^-+|-+$/g, '');
+            if (!v) { setMsg('tmsg', t('err'), 'err'); return; }
+            if (!/\.[a-z]{2,}$/.test(v)) v = v + '.nt';
+            setMsg('tmsg', '…');
+            try {
+              if ((me.names || []).indexOf(v) < 0) await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() });
+              var meta = Object.assign({}, me.profile || {}, { primary: v });
+              await publish({ kind: 0, content: JSON.stringify(meta), tags: [], created_at: nows() });
+              profCache.delete(me.pubkey); await refreshMe(); vProfile(); toast(t('saved'));
+            } catch (e) { setMsg('tmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
+          };
         };
         loadReputation();
       });

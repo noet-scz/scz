@@ -142,3 +142,8 @@ button:disabled{opacity:.5;cursor:default}
 .siteholder .hdr{flex:0 0 auto}
 .sitewrap{flex:1;min-height:0;display:flex}
 .sitefull{flex:1;width:100%;border:0;background:#fff}
+
+/* строка тега с редактированием */
+.tagrow{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.25rem}
+.tagrow .iconbtn{width:30px;height:30px;flex:0 0 30px;border-radius:8px}
+.tagrow input{margin:0}
