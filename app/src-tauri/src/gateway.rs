@@ -81,7 +81,9 @@ pub fn start(cfg: PathBuf) -> std::io::Result<u16> {
         bound.ok_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrInUse, "no free port"))?;
     std::thread::spawn(move || {
         for req in server.incoming_requests() {
-            handle(req, &cfg);
+            // поток на запрос: сетевые вызовы к реле не блокируют друг друга
+            let c = cfg.clone();
+            std::thread::spawn(move || handle(req, &c));
         }
     });
     Ok(port)
@@ -181,6 +183,25 @@ fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Valu
                 None => (200, json!({ "pubkey": Value::Null })),
             }
         }
+        // СЕТЬ в узле: зона ходит за данными сюда, а не в реле напрямую (AUDIT #1)
+        (&Method::Post, "/api/net/query") => {
+            let filters: Value = serde_json::from_str(body).unwrap_or(json!([]));
+            let evs = crate::relay::runtime().block_on(crate::relay::query(filters, 4500));
+            (200, Value::Array(evs))
+        }
+        (&Method::Post, "/api/net/publish") => match read_key(cfg) {
+            None => (401, json!({ "error": "no_key" })),
+            Some(sk) => {
+                let tmpl: Value = serde_json::from_str(body).unwrap_or(json!({}));
+                match identity::sign_event(&sk, &tmpl) {
+                    Ok(signed) => {
+                        crate::relay::runtime().block_on(crate::relay::publish(signed.clone()));
+                        (200, signed)
+                    }
+                    Err(e) => (400, json!({ "error": e })),
+                }
+            }
+        },
         (&Method::Post, "/api/nostr/sign") => match read_key(cfg) {
             None => (401, json!({ "error": "no_key" })),
             Some(sk) => match serde_json::from_str::<Value>(body) {

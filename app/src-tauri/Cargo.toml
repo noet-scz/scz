@@ -33,6 +33,10 @@ include_dir = "0.7"
 open = "5"
 # прокси картинок: узел качает аватары/медиа без браузерного Referer (обход хотлинк-защиты)
 ureq = "2"
+# связь живёт в узле (§04, AUDIT #1): узел держит соединения с реле, зона ходит через API
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+futures-util = "0.3"
 
 [profile.release]
 opt-level = "s"

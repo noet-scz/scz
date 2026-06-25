@@ -5,6 +5,7 @@
 mod gateway;
 mod identity;
 mod nip04;
+mod relay;
 
 use serde_json::{json, Value};
 use std::fs;
@@ -140,6 +141,7 @@ pub fn run() {
         .setup(|app| {
             let cfg = cfg_dir(&app.handle());
             let _ = fs::create_dir_all(&cfg);
+            let _ = relay::runtime(); // прогрев сетевого слоя узла
             let port = gateway::start(cfg).unwrap_or(0);
             app.manage(Node { port });
             if port != 0 {
