@@ -67,7 +67,11 @@
   function avImg(pk, nm, pic, size, cls) {
     var ident = identicon(pk, nm);
     var attrs = (cls ? 'class="' + cls + '" ' : '') + 'width="' + size + '" height="' + size + '" style="border-radius:50%;object-fit:cover"';
-    if (pic && /^(https?:|data:)/i.test(pic)) return '<img ' + attrs + ' src="' + esc(pic) + '" onerror="this.onerror=null;this.src=\'' + ident + '\'">';
+    if (pic && /^(https?:|data:)/i.test(pic)) {
+      // http(s) тянем через прокси узла (обход хотлинк-защиты imgur и пр.); data: напрямую
+      var src = /^data:/i.test(pic) ? pic : '/api/img?u=' + encodeURIComponent(pic);
+      return '<img ' + attrs + ' src="' + esc(src) + '" onerror="this.onerror=null;this.src=\'' + ident + '\'">';
+    }
     return '<img ' + attrs + ' src="' + ident + '">';
   }
   function applyAvatars() {}

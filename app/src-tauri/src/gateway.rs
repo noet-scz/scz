@@ -6,7 +6,9 @@
 use crate::identity;
 use include_dir::{include_dir, Dir};
 use serde_json::{json, Value};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tiny_http::{Header, Method, Request, Response, Server};
 
 static ZONE: Dir = include_dir!("$CARGO_MANIFEST_DIR/../zone");
@@ -89,9 +91,60 @@ fn json_header() -> Header {
     Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap()
 }
 
+fn pct_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'%' if i + 2 < b.len() => match u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                Ok(v) => { out.push(v); i += 3; }
+                Err(_) => { out.push(b'%'); i += 1; }
+            },
+            b'+' => { out.push(b' '); i += 1; }
+            c => { out.push(c); i += 1; }
+        }
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+// прокси картинки: узел качает по URL (без браузерного Referer) и отдаёт зоне со своего
+// origin. Обходит хотлинк-защиту (imgur и пр.) и CORS.
+fn serve_img(req: Request, url_full: &str) {
+    let q = url_full.splitn(2, '?').nth(1).unwrap_or("");
+    let raw = q.split('&').find_map(|kv| kv.strip_prefix("u=")).unwrap_or("");
+    let u = pct_decode(raw);
+    if !(u.starts_with("http://") || u.starts_with("https://")) {
+        let _ = req.respond(Response::from_string("bad url").with_status_code(400));
+        return;
+    }
+    let agent = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(8))
+        .timeout_read(Duration::from_secs(12))
+        .build();
+    match agent.get(&u).call() {
+        Ok(resp) => {
+            let ct = resp.header("Content-Type").unwrap_or("application/octet-stream").to_string();
+            let mut buf = Vec::new();
+            let _ = resp.into_reader().take(8 * 1024 * 1024).read_to_end(&mut buf);
+            let mut r = Response::from_data(buf)
+                .with_header(Header::from_bytes(&b"Content-Type"[..], ct.as_bytes()).unwrap());
+            if let Ok(h) = Header::from_bytes(&b"Cache-Control"[..], &b"public, max-age=86400"[..]) {
+                r = r.with_header(h);
+            }
+            let _ = req.respond(r);
+        }
+        Err(_) => { let _ = req.respond(Response::from_string("fetch failed").with_status_code(502)); }
+    }
+}
+
 fn handle(mut req: Request, cfg: &Path) {
     let url = req.url().to_string();
     let path = url.split('?').next().unwrap_or("/").to_string();
+    if path == "/api/img" {
+        serve_img(req, &url);
+        return;
+    }
     if path.starts_with("/api/") {
         let method = req.method().clone();
         let mut body = String::new();
