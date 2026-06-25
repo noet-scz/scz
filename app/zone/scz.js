@@ -31,6 +31,7 @@
       my_names: 'Мои имена', open: 'Открыть', publish: 'Опубликовать', no_names: 'Имён пока нет. Займи имя выше.',
       open_t: 'Открыть имя', open_ph: 'имя, чтобы открыть', go: 'Перейти',
       pub_t: 'Опубликовать под именем', pub_html: 'HTML страницы или игры', published: 'Опубликовано.', site_none: 'Под этим именем пока ничего не опубликовано.',
+      bad_domain: 'Имя вида name.nt, с точкой и доменом.', taken: 'Имя уже занято.', need_rep: 'Набери репутацию (напиши в ленте), чтобы занимать имена и публиковать.', del_name: 'Удалить имя', del_name_q: 'Удалить имя? Оно освободится.',
       set_lang: 'Язык', set_accounts: 'Аккаунты', set_active: 'активный', set_switch: 'Войти', set_add: 'Добавить аккаунт', set_add_ph: 'приватный ключ (64 hex)', set_new: 'Создать новый',
       set_storage: 'Хранилище', set_used: 'занято', set_accs: 'аккаунтов', set_notif: 'Уведомления', forget: 'Забыть активный ключ', forget_q: 'Забыть ключ активного аккаунта? Без бэкапа не вернуть.',
       back: 'Назад', offline: 'Реле недоступны, проверь сеть.', err: 'Не получилось.',
@@ -59,6 +60,7 @@
       my_names: 'My names', open: 'Open', publish: 'Publish', no_names: 'No names yet. Claim one above.',
       open_t: 'Open a name', open_ph: 'name to open', go: 'Go',
       pub_t: 'Publish under name', pub_html: 'HTML of the page or game', published: 'Published.', site_none: 'Nothing published under this name yet.',
+      bad_domain: 'Use name.nt, with a dot and a TLD.', taken: 'Name already taken.', need_rep: 'Build reputation (post in the feed) to claim names and publish.', del_name: 'Delete name', del_name_q: 'Delete the name? It will be freed.',
       set_lang: 'Language', set_accounts: 'Accounts', set_active: 'active', set_switch: 'Switch', set_add: 'Add account', set_add_ph: 'private key (64 hex)', set_new: 'Create new',
       set_storage: 'Storage', set_used: 'used', set_accs: 'accounts', set_notif: 'Notifications', forget: 'Forget active key', forget_q: 'Forget the active account key? No backup, no return.',
       back: 'Back', offline: 'Relays unreachable, check your connection.', err: 'Failed.',
@@ -116,6 +118,7 @@
     edit: '<path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
     check: '<path d="M5 12l5 5l10 -10"/>',
     photo: '<path d="M15 8h.01"/><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z"/><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5"/><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3"/>',
+    trash: '<path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
   };
   function icon(n, s) { return '<svg class="ic" width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (IC[n] || '') + '</svg>'; }
   function ibtn(id, ic, title) { return '<button class="iconbtn"' + (id ? ' id="' + id + '"' : '') + ' title="' + esc(title || '') + '">' + icon(ic) + '</button>'; }
@@ -233,10 +236,12 @@
   function stripHtml(h) { return String(h || '').replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim(); }
   async function buildIndex() {
     if (_index) return _index;
-    var evs = await query([{ kinds: [KIND.claim], '#t': ['noet-name'], limit: 1000 }, { kinds: [0], limit: 1000 }, { kinds: [KIND.page], limit: 1000 }]);
+    var evs = await query([{ kinds: [KIND.claim], '#t': ['noet-name'], limit: 1000 }, { kinds: [0], limit: 1000 }, { kinds: [KIND.page], limit: 1000 }, { kinds: [5], limit: 1000 }]);
     var prof = {}; evs.filter(function (e) { return e.kind === 0; }).forEach(function (e) { if (!prof[e.pubkey] || e.created_at > (prof[e.pubkey]._ts || 0)) { try { var p = JSON.parse(e.content); p._ts = e.created_at; prof[e.pubkey] = p; } catch (x) {} } });
+    var del = {}; evs.filter(function (e) { return e.kind === 5; }).forEach(function (e) { (e.tags || []).forEach(function (x) { if (x[0] === 'e') del[x[1]] = 1; }); });
     var owner = {};
-    evs.filter(function (e) { return e.kind === KIND.claim && /\.(me|nt)$/i.test((e.tags.find(function (t) { return t[0] === 'd'; }) || [])[1] || ''); }).forEach(function (c) { var n = (c.tags.find(function (t) { return t[0] === 'd'; }) || [])[1]; if (!owner[n] || c.created_at < owner[n].ts) owner[n] = { pk: c.pubkey, ts: c.created_at }; });
+    // только реальные имена зоны: формат label.tld, не тестовые (p\d+-…), не удалённые (kind 5)
+    evs.filter(function (e) { return e.kind === KIND.claim && validDomain((e.tags.find(function (t) { return t[0] === 'd'; }) || [])[1]) && !del[e.id]; }).forEach(function (c) { var n = (c.tags.find(function (t) { return t[0] === 'd'; }) || [])[1]; if (!owner[n] || c.created_at < owner[n].ts) owner[n] = { pk: c.pubkey, ts: c.created_at }; });
     var pageBy = {};
     evs.filter(function (e) { return e.kind === KIND.page; }).forEach(function (e) { var n = (e.tags.find(function (t) { return t[0] === 'd'; }) || [])[1]; if (!n || !owner[n] || e.pubkey !== owner[n].pk) return; if (pageBy[n] && pageBy[n]._ts > e.created_at) return; var txt = ''; var c = e.content || ''; try { var o = JSON.parse(c); txt = o.html ? stripHtml(o.html) : ''; } catch (x) { txt = stripHtml(c); } pageBy[n] = { text: txt.slice(0, 1500), _ts: e.created_at }; });
     _index = Object.keys(owner).map(function (n) { var p = prof[owner[n].pk] || {}, pg = pageBy[n] || {}; return { name: n, handle: n.replace(/\.(me|nt)$/i, ''), dn: p.name || n.replace(/\.(me|nt)$/i, ''), about: p.about || '', text: pg.text || '', pk: owner[n].pk, pic: p.picture }; });
@@ -282,10 +287,10 @@
       '<div class="card"><div style="font-weight:700;margin-bottom:.7rem">' + esc(t('rep_t')) + '</div><div class="rep" id="rep"><div class="spin"></div></div></div>' +
       '</div>', function () {
         document.getElementById('cpk').onclick = function () { copy(me.pubkey).then(function () { toast(t('copied')); }); };
-        document.getElementById('pupload').onclick = function () { pickImage(512, 140000, function (d) { document.getElementById('pp').value = d; toast(t('saved')); }); };
+        document.getElementById('pupload').onclick = function () { pickImage(512, 140000, function (d) { document.getElementById('pp').value = d; var av = document.querySelector('.idhead .av'); if (av) { av.removeAttribute('onerror'); av.src = d; } }); };
         document.getElementById('psave').onclick = async function () {
           var meta = Object.assign({}, me.profile || {}, { name: val('pn'), about: val('pa'), picture: val('pp'), lang: lang }); setMsg('pmsg', '…');
-          try { await publish({ kind: 0, content: JSON.stringify(meta), tags: [], created_at: nows() }); profCache.delete(me.pubkey); await refreshMe(); vProfile(); toast(t('saved')); }
+          try { await publish({ kind: 0, content: JSON.stringify(meta), tags: [], created_at: nows() }); me.profile = meta; profCache.set(me.pubkey, meta); vProfile(); toast(t('saved')); }
           catch (e) { setMsg('pmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
         };
         // сменить тег: выбрать/занять имя и сделать его основным (primary в профиле)
@@ -302,10 +307,10 @@
             if (!/\.[a-z]{2,}$/.test(v)) v = v + '.nt';
             setMsg('tmsg', '…');
             try {
-              if ((me.names || []).indexOf(v) < 0) await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() });
+              if ((me.names || []).indexOf(v) < 0) { await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() }); me.names = (me.names || []).concat([v]); }
               var meta = Object.assign({}, me.profile || {}, { primary: v });
               await publish({ kind: 0, content: JSON.stringify(meta), tags: [], created_at: nows() });
-              profCache.delete(me.pubkey); await refreshMe(); vProfile(); toast(t('saved'));
+              me.profile = meta; me.handle = v; profCache.set(me.pubkey, meta); vProfile(); toast(t('saved'));
             } catch (e) { setMsg('tmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
           };
         };
@@ -435,33 +440,46 @@
   }
 
   /* ---------- домены и сайты ---------- */
+  var MIN_REP = 3;
+  function isTestName(n) { return /^p\d+-[0-9a-f]{5,}\.(me|nt)$/i.test(n || ''); }
+  function validDomain(s) { s = String(s || '').trim().toLowerCase(); return (/^[a-z0-9][a-z0-9-]{0,61}\.[a-z]{2,24}$/.test(s) && !isTestName(s)) ? s : null; }
   function slugName(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48); }
   function vSites() {
     var parts = route().parts;
     if (parts[1] === 'open' && parts[2]) return vSiteView(parts[2]);
     if (parts[1] === 'pub' && parts[2]) return vPublish(parts[2]);
     mount('<div class="wrap"><h1>' + esc(t('nav_sites')) + '</h1>' +
-      (me.hasKey ? '<div class="card"><label>' + esc(t('claim_t')) + '</label><div class="row"><input id="cn" placeholder="' + esc(t('claim_ph')) + '" style="flex:1;margin:0"><button id="claim">' + esc(t('claim')) + '</button></div><div class="msg" id="cmsg"></div></div>' +
-        '<h2>' + esc(t('my_names')) + '</h2><div class="card" id="names"><div class="spin"></div></div>' : '<div class="card mut">' + esc(t('need_id')) + '</div>') +
+      (me.hasKey ? '<h2 style="margin-top:0">' + esc(t('my_names')) + '</h2><div class="card" id="names"><div class="spin"></div></div>' +
+        '<div class="card"><label>' + esc(t('claim_t')) + '</label><div class="row"><input id="cn" placeholder="' + esc(t('claim_ph')) + '" style="flex:1;margin:0"><button id="claim">' + esc(t('claim')) + '</button></div><div class="msg" id="cmsg"></div></div>' : '<div class="card mut">' + esc(t('need_id')) + '</div>') +
       '<div class="card"><label>' + esc(t('open_t')) + '</label><div class="row"><input id="on" placeholder="' + esc(t('open_ph')) + '" style="flex:1;margin:0">' + ibtn('ob', 'go', t('go')) + '</div></div>' +
       '</div>', function () {
-        document.getElementById('ob').onclick = function () { var v = slugName(val('on')); if (v) go('sites', 'open', v); };
+        document.getElementById('ob').onclick = function () { var v = validDomain(val('on')); if (v) go('sites', 'open', v); else { /* открыть как ввели, вдруг существующее */ var raw = (val('on') || '').trim().toLowerCase(); if (raw) go('sites', 'open', raw); } };
         if (me.hasKey) {
-          document.getElementById('claim').onclick = async function () { var v = slugName(val('cn')); if (!v) return; if (!/\.[a-z]{2,}$/.test(v)) v = v + '.nt'; setMsg('cmsg', '…'); try { await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() }); setMsg('cmsg', t('published'), 'ok'); if (!me.handle) me.handle = v; loadNames(); } catch (e) { setMsg('cmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
           loadNames();
+          document.getElementById('claim').onclick = async function () {
+            var v = validDomain(val('cn'));
+            if (!v) { setMsg('cmsg', t('bad_domain'), 'err'); return; }
+            if ((me.names || []).indexOf(v) >= 0) { setMsg('cmsg', t('taken'), 'err'); return; }
+            setMsg('cmsg', '…');
+            try { await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() }); setMsg('cmsg', t('published'), 'ok'); me.names = (me.names || []).concat([v]); if (!me.handle) me.handle = v; loadNames(); } catch (e) { setMsg('cmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
+          };
         }
       });
   }
   async function loadNames() {
     var box = document.getElementById('names'); if (!box) return;
     try {
-      var evs = await query({ kinds: [KIND.claim], authors: [me.pubkey], limit: 100 });
-      var names = {}; evs.forEach(function (e) { var d = (e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1]; if (d) names[d] = 1; });
-      var list = Object.keys(names).sort();
+      var evs = await query([{ kinds: [KIND.claim], authors: [me.pubkey], limit: 200 }, { kinds: [5], authors: [me.pubkey], limit: 200 }]);
+      var del = {}; evs.filter(function (e) { return e.kind === 5; }).forEach(function (e) { (e.tags || []).forEach(function (x) { if (x[0] === 'e') del[x[1]] = 1; }); });
+      var byName = {}; // имя -> массив id заявок (живых)
+      evs.filter(function (e) { return e.kind === KIND.claim && !del[e.id]; }).forEach(function (e) { var d = (e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1]; if (!d) return; (byName[d] = byName[d] || []).push(e.id); });
+      var list = Object.keys(byName).sort();
+      me.names = list;
       if (!list.length) { box.innerHTML = '<div class="empty">' + esc(t('no_names')) + '</div>'; return; }
-      box.innerHTML = list.map(function (n) { return '<div class="nameitem"><span class="mono" style="flex:1">' + esc(n) + '</span><button class="iconbtn" data-open="' + esc(n) + '" title="' + esc(t('open')) + '">' + icon('open') + '</button><button data-pub="' + esc(n) + '">' + esc(t('publish')) + '</button></div>'; }).join('');
+      box.innerHTML = list.map(function (n) { return '<div class="nameitem"><span class="mono" style="flex:1">' + esc(n) + '</span><button class="iconbtn" data-open="' + esc(n) + '" title="' + esc(t('open')) + '">' + icon('open') + '</button><button data-pub="' + esc(n) + '">' + esc(t('publish')) + '</button><button class="iconbtn" data-del="' + esc(n) + '" title="' + esc(t('del_name')) + '">' + icon('trash') + '</button></div>'; }).join('');
       box.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { go('sites', 'open', b.dataset.open); }; });
       box.querySelectorAll('[data-pub]').forEach(function (b) { b.onclick = function () { go('sites', 'pub', b.dataset.pub); }; });
+      box.querySelectorAll('[data-del]').forEach(function (b) { b.onclick = async function () { var n = b.dataset.del; if (!confirm(t('del_name_q'))) return; try { await publish({ kind: 5, content: '', tags: byName[n].map(function (id) { return ['e', id]; }), created_at: nows() }); _index = null; if (me.handle === n) me.handle = ''; await refreshMe(); loadNames(); } catch (e) {} }; });
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
   function vPublish(name) {
@@ -472,7 +490,8 @@
         document.querySelector('.wrap .iconbtn').onclick = function () { go('sites'); };
         query({ kinds: [KIND.page], '#d': [name], authors: [me.pubkey], limit: 1 }).then(function (evs) { if (evs[0] && evs[0].content) document.getElementById('phtml').value = evs[0].content; });
         document.getElementById('popen').onclick = function () { go('sites', 'open', name); };
-        document.getElementById('pub').onclick = async function () { var html = val('phtml'); if (!html) return; setMsg('pmsg', '…'); try { await publish({ kind: KIND.page, content: html, tags: [['d', name]], created_at: nows() }); setMsg('pmsg', t('published'), 'ok'); } catch (e) { setMsg('pmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
+        var allow = (me.names || []).indexOf(name) >= 0; // публиковать можно только под своим именем
+        document.getElementById('pub').onclick = async function () { if (!allow) { setMsg('pmsg', t('taken'), 'err'); return; } var r = await repCells(me.pubkey).catch(function () { return { score: 0 }; }); if (r.score < MIN_REP) { setMsg('pmsg', t('need_rep'), 'err'); return; } var html = val('phtml'); if (!html) return; setMsg('pmsg', '…'); try { await publish({ kind: KIND.page, content: html, tags: [['d', name]], created_at: nows() }); setMsg('pmsg', t('published'), 'ok'); } catch (e) { setMsg('pmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
       });
   }
   var GATEWAYS = ['https://{cid}.ipfs.dweb.link/', 'https://ipfs.io/ipfs/{cid}/'];
@@ -558,7 +577,7 @@
     var prof = await profileOf(peer).catch(function () { return {}; });
     var nm = prof.name || npubShort(peer);
     mount('<div class="wrap wide"><div class="row" style="margin-bottom:.6rem">' + ibtn('', 'back', t('back')) + '<b>' + esc(nm) + '</b> <span class="mut mono">' + esc(npubShort(peer)) + '</span></div>' +
-      '<div class="card" style="padding:0"><div id="dmlist" class="feed"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div>' +
+      '<div class="card chatcard" style="padding:0"><div id="dmlist" class="feed"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div>' +
       '<div class="composer"><textarea id="dmtxt" placeholder="' + esc(t('dm_ph')) + '"></textarea><div class="row" style="justify-content:flex-end"><span class="msg" id="dmmsg" style="flex:1"></span><button class="iconbtn pri" id="dmsend" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div></div></div>', function () {
         document.querySelector('.wrap .iconbtn').onclick = function () { go('messenger', 'dm'); };
         document.getElementById('dmsend').onclick = async function () {
@@ -646,10 +665,14 @@
   function vComm() {
     var coord = route().parts[1];
     if (coord) return vCommunity(coord);
-    mount('<div class="wrap"><h1>' + esc(t('comm_title')) + '</h1>' +
-      (me.hasKey ? '<div class="card"><input id="cnm" placeholder="' + esc(t('comm_new_ph')) + '"><input id="cab" placeholder="' + esc(t('comm_about_ph')) + '"><div class="row"><button id="cmk">' + esc(t('comm_create')) + '</button><span class="msg" id="cmsg"></span></div></div>' : '') +
-      '<div id="clist"><div class="spin" style="margin:1rem auto"></div></div></div>', function () {
-        if (me.hasKey) document.getElementById('cmk').onclick = async function () { var title = (val('cnm') || '').trim(); if (!title) return; setMsg('cmsg', '…'); try { var s = await space.create({ title: title, about: (val('cab') || '').trim(), type: 'community' }); go('comm', s.coord); } catch (e) { setMsg('cmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
+    mount('<div class="wrap"><div class="row" style="justify-content:space-between;align-items:center"><h1 style="margin:0">' + esc(t('comm_title')) + '</h1>' +
+      (me.hasKey ? '<button class="ghost" id="newc">+ ' + esc(t('comm_create')) + '</button>' : '') + '</div>' +
+      (me.hasKey ? '<div class="card" id="ncard" style="display:none;margin-top:1rem"><input id="cnm" placeholder="' + esc(t('comm_new_ph')) + '"><input id="cab" placeholder="' + esc(t('comm_about_ph')) + '"><div class="row"><button id="cmk">' + esc(t('comm_create')) + '</button><span class="msg" id="cmsg"></span></div></div>' : '') +
+      '<div id="clist" style="margin-top:1rem"><div class="spin" style="margin:1rem auto"></div></div></div>', function () {
+        if (me.hasKey) {
+          document.getElementById('newc').onclick = function () { var n = document.getElementById('ncard'); n.style.display = n.style.display === 'none' ? 'block' : 'none'; if (n.style.display === 'block') document.getElementById('cnm').focus(); };
+          document.getElementById('cmk').onclick = async function () { var title = (val('cnm') || '').trim(); if (!title) return; setMsg('cmsg', '…'); try { var s = await space.create({ title: title, about: (val('cab') || '').trim(), type: 'community' }); go('comm', s.coord); } catch (e) { setMsg('cmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); } };
+        }
         loadComms();
       });
   }

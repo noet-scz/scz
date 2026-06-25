@@ -185,3 +185,11 @@ button.onv{border-color:var(--acc);color:var(--fg)}
 /* инлайн-картинки в постах */
 .postimg{max-width:100%;max-height:24rem;border-radius:10px;margin-top:.5rem;display:block;object-fit:cover}
 .item .postimg{max-width:22rem}
+
+/* лента и чат на всю доступную высоту, не зависят от числа сообщений */
+.msgr{height:calc(100vh - 12.5rem);min-height:22rem}
+.msgr .chat{height:100%}
+.msgr .chans{max-height:100%;overflow:auto}
+.feed{flex:1;min-height:0;max-height:none}
+.chatcard{display:flex;flex-direction:column;height:calc(100vh - 11rem);min-height:22rem}
+@media (max-width:720px){ .msgr{height:auto} .msgr .chat{height:70vh} .chatcard{height:72vh} }

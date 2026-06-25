@@ -49,7 +49,7 @@ function names(pubkeys) {
     let socks; try { socks = RELAYS.map((u) => new WebSocket(u)); } catch { return resolve(out); }
     let closed = 0; const fin = () => { try { socks.forEach((w) => w.close()); } catch {} resolve(out); };
     const tm = setTimeout(fin, 3500);
-    socks.forEach((ws) => { ws.onopen = () => { try { ws.send(JSON.stringify(['REQ', 'n', { kinds: [0], authors: pubkeys, limit: pubkeys.length }])); } catch {} }; ws.onmessage = (m) => { try { const a = JSON.parse(m.data); if (a[0] === 'EVENT' && a[2]) { try { const p = JSON.parse(a[2].content); if (p.name) out[a[2].pubkey] = p.name; } catch {} } else if (a[0] === 'EOSE') { ws.close(); if (++closed >= socks.length) { clearTimeout(tm); fin(); } } } catch {} }; ws.onerror = () => { if (++closed >= socks.length) { clearTimeout(tm); fin(); } }; });
+    socks.forEach((ws) => { ws.onopen = () => { try { ws.send(JSON.stringify(['REQ', 'n', { kinds: [0], authors: pubkeys, limit: pubkeys.length }])); } catch {} }; ws.onmessage = (m) => { try { const a = JSON.parse(m.data); if (a[0] === 'EVENT' && a[2]) { try { const p = JSON.parse(a[2].content); out[a[2].pubkey] = { name: p.name || '', picture: p.picture || '' }; } catch {} } else if (a[0] === 'EOSE') { ws.close(); if (++closed >= socks.length) { clearTimeout(tm); fin(); } } } catch {} }; ws.onerror = () => { if (++closed >= socks.length) { clearTimeout(tm); fin(); } }; });
   });
 }
 
@@ -68,9 +68,12 @@ function ib(name, ic, title) { return '<button class="iconbtn" id="' + name + '"
 function render() {
   const notif = localStorage.getItem('scz_notif') === '1';
   const accHtml = accs.accounts.length ? accs.accounts.map((pk) => {
-    const nm = nameMap[pk] || shortPk(pk);
+    const info = nameMap[pk] || {};
+    const nm = info.name || shortPk(pk);
+    const ident = identicon(pk, nm);
+    const src = info.picture ? (/^data:/i.test(info.picture) ? info.picture : (url + 'api/img?u=' + encodeURIComponent(info.picture))) : ident;
     const isA = pk === accs.active;
-    return '<div class="acc"><img src="' + identicon(pk, nm) + '"><div style="min-width:0"><div class="nm">' + esc(nm) + '</div><div class="tg">' + esc(shortPk(pk)) + '</div></div>' +
+    return '<div class="acc"><img src="' + esc(src) + '" onerror="this.onerror=null;this.src=\'' + ident + '\'"><div style="min-width:0"><div class="nm">' + esc(nm) + '</div><div class="tg">' + esc(shortPk(pk)) + '</div></div>' +
       (isA ? '<span class="badge">' + esc(t('active')) + '</span>' : '<button class="iconbtn" data-sw="' + esc(pk) + '" title="' + esc(t('active')) + '">' + icon('switch') + '</button>') + '</div>';
   }).join('') : '<div class="mut" style="padding:.6rem .1rem">' + esc(t('no_accs')) + '</div>';
 

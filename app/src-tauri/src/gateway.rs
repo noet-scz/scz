@@ -132,6 +132,10 @@ fn serve_img(req: Request, url_full: &str) {
             if let Ok(h) = Header::from_bytes(&b"Cache-Control"[..], &b"public, max-age=86400"[..]) {
                 r = r.with_header(h);
             }
+            // CORS: чтобы и нативное окно (tauri://) могло тянуть аватары через прокси
+            if let Ok(h) = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]) {
+                r = r.with_header(h);
+            }
             let _ = req.respond(r);
         }
         Err(_) => { let _ = req.respond(Response::from_string("fetch failed").with_status_code(502)); }
