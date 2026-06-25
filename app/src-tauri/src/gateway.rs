@@ -25,6 +25,47 @@ fn write_key(cfg: &Path, sk: &str) -> std::io::Result<()> {
     std::fs::write(key_file(cfg), sk)
 }
 
+fn accounts_dir(cfg: &Path) -> PathBuf {
+    cfg.join("accounts")
+}
+// сохранить ключ как аккаунт (файл accounts/<pubkey>.key), вернуть pubkey
+fn save_account(cfg: &Path, sk: &str) -> Result<String, String> {
+    let pk = identity::pubkey_hex(sk)?;
+    let dir = accounts_dir(cfg);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join(format!("{}.key", pk)), sk).map_err(|e| e.to_string())?;
+    Ok(pk)
+}
+fn list_accounts(cfg: &Path) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(accounts_dir(cfg)) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            if let Some(pk) = name.strip_suffix(".key") {
+                if pk.len() == 64 && pk.chars().all(|c| c.is_ascii_hexdigit()) {
+                    out.push(pk.to_string());
+                }
+            }
+        }
+    }
+    out.sort();
+    out
+}
+fn dir_size(p: &Path) -> u64 {
+    let mut total = 0u64;
+    if let Ok(rd) = std::fs::read_dir(p) {
+        for e in rd.flatten() {
+            let path = e.path();
+            if path.is_dir() {
+                total += dir_size(&path);
+            } else if let Ok(m) = e.metadata() {
+                total += m.len();
+            }
+        }
+    }
+    total
+}
+
 /// Поднять шлюз. Возвращает выбранный порт. Сервер крутится в фоновом потоке.
 pub fn start(cfg: PathBuf) -> std::io::Result<u16> {
     let mut bound = None;
@@ -95,7 +136,7 @@ fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Valu
         },
         (&Method::Post, "/api/identity/create") => {
             let sk = identity::generate();
-            match identity::pubkey_hex(&sk) {
+            match save_account(cfg, &sk) {
                 Ok(pk) => {
                     let _ = write_key(cfg, &sk);
                     (200, json!({ "pubkey": pk, "nsec": sk }))
@@ -103,27 +144,61 @@ fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Valu
                 Err(e) => (500, json!({ "error": e })),
             }
         }
-        (&Method::Post, "/api/identity/import") => {
+        // import = добавить аккаунт И сделать активным; add = добавить без переключения
+        (&Method::Post, "/api/identity/import") | (&Method::Post, "/api/identity/add") => {
             let sk = serde_json::from_str::<Value>(body)
                 .ok()
                 .and_then(|v| v.get("sk").and_then(|x| x.as_str()).map(|s| s.trim().to_lowercase()));
-            match sk {
-                Some(sk) => match identity::pubkey_hex(&sk) {
-                    Ok(pk) => {
+            match sk.and_then(|sk| save_account(cfg, &sk).ok().map(|pk| (sk, pk))) {
+                Some((sk, pk)) => {
+                    if path == "/api/identity/import" {
                         let _ = write_key(cfg, &sk);
-                        (200, json!({ "pubkey": pk }))
                     }
-                    Err(_) => (400, json!({ "error": "bad_key" })),
-                },
+                    (200, json!({ "pubkey": pk }))
+                }
                 None => (400, json!({ "error": "bad_key" })),
             }
+        }
+        (&Method::Get, "/api/identity/accounts") => {
+            let active = read_key(cfg).and_then(|sk| identity::pubkey_hex(&sk).ok());
+            (200, json!({ "accounts": list_accounts(cfg), "active": active }))
+        }
+        (&Method::Post, "/api/identity/switch") => {
+            let pk = serde_json::from_str::<Value>(body)
+                .ok()
+                .and_then(|v| v.get("pubkey").and_then(|x| x.as_str()).map(|s| s.to_lowercase()));
+            match pk {
+                Some(pk) => {
+                    let f = accounts_dir(cfg).join(format!("{}.key", pk));
+                    match std::fs::read_to_string(&f).ok().map(|s| s.trim().to_string()) {
+                        Some(sk) if sk.len() == 64 => {
+                            let _ = write_key(cfg, &sk);
+                            (200, json!({ "pubkey": pk }))
+                        }
+                        _ => (404, json!({ "error": "no_account" })),
+                    }
+                }
+                None => (400, json!({ "error": "no_account" })),
+            }
+        }
+        (&Method::Get, "/api/storage") => {
+            (200, json!({ "bytes": dir_size(cfg), "accounts": list_accounts(cfg).len() }))
         }
         (&Method::Get, "/api/identity/export") => match read_key(cfg) {
             Some(sk) => (200, json!({ "sk": sk })),
             None => (404, json!({ "error": "no_key" })),
         },
         (&Method::Post, "/api/identity/forget") => {
+            // удалить активный аккаунт; если есть другие, переключиться на первый
+            if let Some(pk) = read_key(cfg).and_then(|sk| identity::pubkey_hex(&sk).ok()) {
+                let _ = std::fs::remove_file(accounts_dir(cfg).join(format!("{}.key", pk)));
+            }
             let _ = std::fs::remove_file(key_file(cfg));
+            if let Some(next) = list_accounts(cfg).into_iter().next() {
+                if let Ok(sk) = std::fs::read_to_string(accounts_dir(cfg).join(format!("{}.key", next))) {
+                    let _ = write_key(cfg, sk.trim());
+                }
+            }
             (200, json!({ "ok": true }))
         }
         _ => (404, json!({ "error": "not_found" })),

@@ -1,111 +1,117 @@
-/* SCZ зона (рендерится в браузере, отдаётся локальным узлом). */
+/* SCZ зона — дизайн перенесён с расширения (палитра, радиальный фон, шапка, карточки). */
 :root{
-  --bg:#0a0a0c; --panel:#101016; --card:#15151d; --bd:#23232c; --bd2:#2f2f3a;
-  --fg:#ececf2; --mut:#8b8b98; --acc:#7c5cff; --acc2:#9d8bff; --ok:#34d399; --bad:#ff6b6b;
+  --bg:#0a0a0d; --panel:#121219; --panel2:#16161f; --bd:#23232e; --bd2:#30303c;
+  --fg:#f1f1f5; --mut:#9595a3; --acc:#7c5cff; --acc2:#9d8bff; --ok:#3ddc97; --err:#ff7b8a;
+  --ring:0 0 0 3px rgba(124,92,255,.16);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+html,body{margin:0;min-height:100%}
+body{
+  background:radial-gradient(120% 75% at 50% -8%,#16121f 0%,transparent 60%) fixed,var(--bg);
+  color:var(--fg);font:15px/1.55 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;
+}
 a{color:var(--acc2);text-decoration:none;cursor:pointer}
+::selection{background:rgba(124,92,255,.35)}
 .spin{width:26px;height:26px;border:3px solid var(--bd);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
 .boot{height:100vh;display:flex;align-items:center;justify-content:center}
 
-.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-.side{background:var(--panel);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
-.brand{display:flex;align-items:center;gap:.6rem;padding:1.1rem 1rem .7rem;font-weight:800;font-size:1.15rem}
-.brand img{width:30px;height:30px}
-.nav{display:flex;flex-direction:column;padding:.4rem .55rem;gap:.12rem}
-.nav a{display:flex;align-items:center;gap:.7rem;color:var(--mut);padding:.6rem .75rem;border-radius:10px;font-size:.96rem}
-.nav a .ic{width:1.2rem;text-align:center}
-.nav a:hover{color:var(--fg);background:#17171f}
-.nav a.on{color:var(--fg);background:#1c1c25}
-.side .sp{flex:1}
-.chip{display:flex;align-items:center;gap:.55rem;margin:.55rem;padding:.5rem .65rem;border:1px solid var(--bd2);border-radius:12px;background:#16161d;cursor:pointer}
-.chip:hover{border-color:var(--acc)}
-.chip img{width:32px;height:32px;border-radius:50%}
-.chip .nm{font-weight:700;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip .sub{color:var(--mut);font-size:.74rem}
+/* шапка сверху: лого, навигация-пилюли, чип личности справа */
+.hdr{display:flex;align-items:center;gap:.3rem;padding:.7rem 1.1rem;max-width:54rem;margin:0 auto;width:100%}
+.hbrand{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-weight:700;letter-spacing:.2px}
+.hbrand img{width:28px;height:28px;display:block}
+.hnav{display:flex;gap:.1rem;flex-wrap:wrap;margin-left:.7rem}
+.hnav a{color:var(--mut);font-size:.88rem;padding:.34rem .8rem;border-radius:999px;cursor:pointer;white-space:nowrap}
+.hnav a:hover{color:var(--fg)}
+.hnav a.on{color:var(--fg);background:var(--panel2)}
+.hchip{margin-left:auto;display:inline-flex;align-items:center;gap:.45rem;cursor:pointer;background:var(--panel2);border:1px solid var(--bd2);border-radius:999px;padding:.22rem .75rem .22rem .25rem;font-size:.86rem;max-width:13rem}
+.hchip:hover{border-color:var(--acc)}
+.hchip img{width:27px;height:27px;border-radius:50%;flex:0 0 27px}
+.hchip .ci{min-width:0;display:flex;flex-direction:column;line-height:1.12}
+.hchip .nm{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hchip .tg{color:var(--acc2);font-size:.72rem;font-family:ui-monospace,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.main{min-width:0}
-.wrap{max-width:48rem;margin:0 auto;padding:1.8rem 1.3rem 5rem}
-h1{font-size:1.6rem;margin:0 0 .15em}
-h2{font-size:1.15rem;margin:1.4rem 0 .6rem}
-.lead{color:var(--mut);margin:0 0 1.4rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.8rem}
-.tile{display:block;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem;cursor:pointer}
-.tile:hover{border-color:var(--acc)}
-.tile .ti{font-weight:700;margin-bottom:.2rem}
-.tile .de{color:var(--mut);font-size:.86rem}
-.box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem;margin-bottom:1rem}
-input,textarea,select{width:100%;background:#0f0f15;border:1px solid var(--bd);color:var(--fg);border-radius:10px;padding:.6rem .7rem;font:inherit;margin-bottom:.55rem}
+.wrap{max-width:44rem;margin:0 auto;padding:1.4rem 1.3rem 5rem}
+.wrap.wide{max-width:54rem}
+h1{font-size:1.6rem;margin:0 0 .9rem;letter-spacing:-.3px}
+h2{font-size:1.1rem;margin:1.5rem 0 .6rem}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--bd);border-radius:16px;padding:1.2rem 1.3rem;margin-bottom:1rem;box-shadow:0 10px 36px rgba(0,0,0,.28)}
+label{display:block;color:var(--mut);font-size:.8rem;margin:.2rem 0 .4rem}
+input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--bd2);color:var(--fg);border-radius:11px;padding:.7rem .85rem;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:.55rem}
+input:focus,textarea:focus,select:focus{border-color:var(--acc);box-shadow:var(--ring)}
+input::placeholder,textarea::placeholder{color:#5a5a68}
 textarea{resize:vertical;min-height:5rem;line-height:1.5}
 textarea.code{font:13px ui-monospace,Menlo,monospace;min-height:12rem}
-button{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:.55rem 1.1rem;font:inherit;cursor:pointer}
-button:hover{background:#6c4dff}
-button.ghost{background:transparent;border:1px solid var(--bd);color:var(--mut);font-size:.86rem;padding:.4rem .85rem}
+button{background:var(--acc);border:0;color:#fff;border-radius:11px;padding:.6rem 1.2rem;font:inherit;font-weight:600;cursor:pointer;transition:background .15s,transform .04s}
+button:hover{background:#6b4dff}button:active{transform:translateY(1px)}
+button.ghost{background:0;border:1px solid var(--bd2);color:var(--mut);font-weight:500;padding:.5rem .9rem}
 button.ghost:hover{border-color:var(--acc);color:var(--fg)}
-button.danger{background:#3a1620;border:1px solid #5a2030;color:#ff9aa6}
+button.danger{background:0;border:1px solid #5a2030;color:#ff9aa6}
 button:disabled{opacity:.5;cursor:default}
 .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
 .mut{color:var(--mut)}.mono{font-family:ui-monospace,Menlo,monospace;font-size:.82rem;word-break:break-all}
-.msg{font-size:.85rem;min-height:1.1em}.msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
-.item{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem}
-.item .who{color:var(--acc2);font-weight:600;font-size:.9rem}.item .when{color:var(--mut);font-size:.76rem;margin-left:.4rem}
-.item .txt{white-space:pre-wrap;word-break:break-word;margin:.35rem 0 0}
+.msg{font-size:.85rem;min-height:1.1em}.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
 .empty{color:var(--mut);text-align:center;padding:2rem 1rem}
-.pill{display:inline-block;background:#1c1c25;border:1px solid var(--bd2);border-radius:999px;padding:.15rem .65rem;font-size:.78rem;color:var(--mut)}
-.rep{display:flex;gap:1.2rem;flex-wrap:wrap}
-.rep .n{font-size:1.7rem;font-weight:800}
-.rep .k{color:var(--mut);font-size:.82rem}
-.toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);background:#1c1c25;border:1px solid var(--bd2);padding:.5rem .9rem;border-radius:10px;font-size:.85rem;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
+.toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--bd2);padding:.5rem .9rem;border-radius:10px;font-size:.85rem;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
 .toast.on{opacity:1}
-iframe.site{width:100%;height:72vh;border:1px solid var(--bd);border-radius:12px;background:#fff}
 
-@media (max-width:760px){
-  .shell{grid-template-columns:1fr}
-  .side{position:static;height:auto;flex-direction:row;align-items:center;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd)}
-  .brand{padding:.6rem .7rem}.brand span{display:none}
-  .nav{flex-direction:row;padding:.3rem}.nav a span.t{display:none}
-  .side .sp,.chip .nm,.chip .sub{display:none}
-}
+/* профиль: голова как в расширении */
+.idhead{display:flex;align-items:center;gap:1.1rem;margin-bottom:1.3rem}
+.idhead .av{width:76px;height:76px;border-radius:50%;flex:0 0 76px;object-fit:cover}
+.dn{font-size:1.5rem;font-weight:700;letter-spacing:-.4px;line-height:1.1}
+.tag{color:var(--acc2);font-size:1rem;margin-top:.25rem;font-family:ui-monospace,Menlo,monospace}
+.tag.none{color:var(--mut);font-family:inherit}
+.rep{display:flex;gap:1.4rem;flex-wrap:wrap}
+.rep .n{font-size:1.7rem;font-weight:800}.rep .k{color:var(--mut);font-size:.8rem}
 
-/* чип: ник + тег (это разное) */
-.chip .ci{min-width:0}
-.chip .nm{font-weight:700;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip .tg{color:var(--acc2);font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,Menlo,monospace}
-
-/* профиль: ник и тег */
-.idnick{font-size:1.2rem;font-weight:800;line-height:1.15}
-.idtag{color:var(--acc2);font-size:.92rem;font-family:ui-monospace,Menlo,monospace}
-.kv .k{color:var(--mut);font-size:.78rem}
+/* настройки: аккаунты, тумблеры, сегменты */
+.acc{display:flex;align-items:center;gap:.7rem;padding:.6rem .1rem;border-bottom:1px solid var(--bd)}
+.acc:last-child{border-bottom:0}
+.acc img{width:34px;height:34px;border-radius:50%}
+.acc .nm{font-weight:600}.acc .tg{color:var(--mut);font-size:.8rem;font-family:ui-monospace,Menlo,monospace}
+.acc .badge{color:var(--ok);font-size:.78rem;margin-left:auto}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.45rem 0}
+.kv .k{color:var(--mut)}
+.toggle{width:42px;height:24px;border-radius:999px;background:var(--bd2);position:relative;cursor:pointer;flex:0 0 42px}
+.toggle.on{background:var(--acc)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+.toggle.on::after{left:21px}
+.seg{display:inline-flex;border:1px solid var(--bd2);border-radius:10px;overflow:hidden}
+.seg button{background:0;border:0;color:var(--mut);padding:.45rem 1.1rem;font-weight:500}
+.seg button.on{background:var(--acc);color:#fff}
 
 /* мессенджер: каналы слева, чат справа */
-.msgr{display:grid;grid-template-columns:210px 1fr;gap:.7rem;align-items:start}
+.msgr{display:grid;grid-template-columns:200px 1fr;gap:.8rem;align-items:start}
 .chans{padding:.7rem}
 .chans-h{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:.5rem}
-.addch{width:26px;height:26px;border-radius:8px;background:#1c1c25;border:1px solid var(--bd2);color:var(--fg);font-size:1.15rem;line-height:1;padding:0}
-.chan{display:block;padding:.45rem .55rem;border-radius:8px;color:var(--mut);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chan:hover{background:#17171f;color:var(--fg)}
-.chan.on{background:#1c1c25;color:var(--fg)}
+.addch{width:26px;height:26px;border-radius:8px;background:var(--panel2);border:1px solid var(--bd2);color:var(--fg);font-size:1.15rem;line-height:1;padding:0}
+.chan{display:block;padding:.45rem .55rem;border-radius:9px;color:var(--mut);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chan:hover{background:#1b1b24;color:var(--fg)}
+.chan.on{background:var(--panel2);color:var(--fg)}
 #newch input{margin-bottom:.4rem}
 .chat{display:flex;flex-direction:column;padding:0;overflow:hidden}
-.chat-h{padding:.65rem .9rem;border-bottom:1px solid var(--bd);font-weight:700}
-.feed{padding:.7rem .9rem;max-height:56vh;overflow:auto}
-.feed .item{margin-bottom:.5rem}
-.composer{padding:.7rem .9rem;border-top:1px solid var(--bd)}
-.composer textarea{min-height:3.4rem;margin-bottom:.4rem}
+.chat-h{padding:.65rem .95rem;border-bottom:1px solid var(--bd);font-weight:700}
+.feed{padding:.7rem .95rem;max-height:56vh;overflow:auto}
+.item{padding:.5rem 0;border-bottom:1px solid var(--bd)}
+.item:last-child{border-bottom:0}
+.item .who{color:var(--acc2);font-weight:600;font-size:.9rem}.item .when{color:var(--mut);font-size:.76rem;margin-left:.4rem}
+.item .txt{white-space:pre-wrap;word-break:break-word;margin:.25rem 0 0}
+.composer{padding:.7rem .95rem;border-top:1px solid var(--bd)}
+.composer textarea{min-height:3.2rem;margin-bottom:.4rem}
 
-@media (max-width:760px){
-  .chip .ci{display:none}
-  .msgr{grid-template-columns:1fr}
-  .chans{padding:.6rem}
-  .chans-h{margin-bottom:.4rem}
-  .feed{max-height:48vh}
-}
+/* список имён */
+.nameitem{display:flex;align-items:center;gap:.5rem;padding:.55rem 0;border-bottom:1px solid var(--bd)}
+.nameitem:last-child{border-bottom:0}
 
-/* просмотр сайта на весь экран (как было в расширении) */
+/* сайт на весь экран */
 .siteview{height:100vh;display:flex;flex-direction:column}
 .sitebar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem .8rem;background:var(--panel);border-bottom:1px solid var(--bd);flex-shrink:0}
 .sitewrap{flex:1;min-height:0;display:flex}
 .sitefull{flex:1;width:100%;border:0;background:#fff}
+
+@media (max-width:720px){
+  .hnav a{padding:.34rem .6rem}
+  .hchip .ci{display:none}
+  .msgr{grid-template-columns:1fr}
+  .feed{max-height:46vh}
+}
