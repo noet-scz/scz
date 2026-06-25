@@ -90,6 +90,14 @@
   }
   function applyAvatars() {}
   function when(ts) { var d = new Date(ts * 1000); return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+  // выбрать картинку, ужать в canvas, отдать data URI (инлайн в событие, без IPFS/аккаунтов)
+  function pickImage(maxDim, maxChars, cb) {
+    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = function () { var f = inp.files && inp.files[0]; if (!f) return; var r = new FileReader(); r.onload = function () { var img = new Image(); img.onload = function () { var w = img.width, h = img.height, sc = Math.min(1, maxDim / Math.max(w, h)); var cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc)); var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; cv.getContext('2d').drawImage(img, 0, 0, cw, ch); var q = 0.85, out = cv.toDataURL('image/jpeg', q); while (out.length > maxChars && q > 0.4) { q -= 0.1; out = cv.toDataURL('image/jpeg', q); } cb(out); }; img.onerror = function () {}; img.src = r.result; }; r.readAsDataURL(f); };
+    inp.click();
+  }
+  // картинка из тега image события: data: напрямую, http(s) через прокси узла
+  function postImg(ev) { var it = (ev.tags || []).find(function (x) { return x[0] === 'image'; }); if (!it || !it[1]) return ''; var u = it[1]; var src = /^data:/i.test(u) ? u : '/api/img?u=' + encodeURIComponent(u); return '<img class="postimg" loading="lazy" src="' + esc(src) + '">'; }
   function toast(s) { var el = document.querySelector('.toast'); if (!el) { el = document.createElement('div'); el.className = 'toast'; document.body.appendChild(el); } el.textContent = s; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(function () { el.classList.remove('on'); }, 2200); }
   function copy(s) { return navigator.clipboard.writeText(s).then(function () { return true; }, function () { return false; }); }
   function fmtBytes(b) { if (b < 1024) return b + ' B'; if (b < 1048576) return (b / 1024).toFixed(1) + ' KB'; return (b / 1048576).toFixed(1) + ' MB'; }
@@ -107,6 +115,7 @@
     search: '<path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/>',
     edit: '<path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
     check: '<path d="M5 12l5 5l10 -10"/>',
+    photo: '<path d="M15 8h.01"/><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z"/><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5"/><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3"/>',
   };
   function icon(n, s) { return '<svg class="ic" width="' + (s || 18) + '" height="' + (s || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (IC[n] || '') + '</svg>'; }
   function ibtn(id, ic, title) { return '<button class="iconbtn"' + (id ? ' id="' + id + '"' : '') + ' title="' + esc(title || '') + '">' + icon(ic) + '</button>'; }
@@ -266,13 +275,14 @@
       '<div class="card"><div class="idhead">' + avImg(me.pubkey, dn, me.profile && me.profile.picture, 76, 'av') +
       '<div style="min-width:0"><div class="dn">' + esc(dn) + '</div><div id="tagrow" class="tagrow"><span class="tag' + (me.handle ? '' : ' none') + '">' + esc(me.handle ? tag : t('no_tag')) + '</span>' + ibtn('tagedit', 'edit', t('change_tag')) + '</div></div></div>' +
       '<label>' + esc(t('nick')) + '</label><input id="pn" placeholder="' + esc(t('nick_ph')) + '" value="' + esc((me.profile && me.profile.name) || '') + '">' +
-      '<label>' + esc(t('avatar')) + '</label><input id="pp" placeholder="' + esc(t('avatar_ph')) + '" value="' + esc((me.profile && me.profile.picture) || '') + '">' +
+      '<label>' + esc(t('avatar')) + '</label><div class="row" style="margin-bottom:.55rem"><input id="pp" placeholder="' + esc(t('avatar_ph')) + '" value="' + esc((me.profile && me.profile.picture) || '') + '" style="flex:1;margin:0">' + ibtn('pupload', 'photo', t('avatar')) + '</div>' +
       '<label>' + esc(t('about')) + '</label><textarea id="pa" placeholder="' + esc(t('about_ph')) + '">' + esc((me.profile && me.profile.about) || '') + '</textarea>' +
       '<div class="row"><button class="iconbtn pri" id="psave" title="' + esc(t('save')) + '">' + icon('save') + '</button><span class="msg" id="pmsg"></span></div></div>' +
       '<div class="card"><div class="row" style="justify-content:space-between"><span class="mut">' + esc(t('pubkey')) + '</span>' + ibtn('cpk', 'copy', t('copy')) + '</div><div class="mono" style="margin-top:.4rem">' + esc(me.pubkey) + '</div></div>' +
       '<div class="card"><div style="font-weight:700;margin-bottom:.7rem">' + esc(t('rep_t')) + '</div><div class="rep" id="rep"><div class="spin"></div></div></div>' +
       '</div>', function () {
         document.getElementById('cpk').onclick = function () { copy(me.pubkey).then(function () { toast(t('copied')); }); };
+        document.getElementById('pupload').onclick = function () { pickImage(512, 140000, function (d) { document.getElementById('pp').value = d; toast(t('saved')); }); };
         document.getElementById('psave').onclick = async function () {
           var meta = Object.assign({}, me.profile || {}, { name: val('pn'), about: val('pa'), picture: val('pp'), lang: lang }); setMsg('pmsg', '…');
           try { await publish({ kind: 0, content: JSON.stringify(meta), tags: [], created_at: nows() }); profCache.delete(me.pubkey); await refreshMe(); vProfile(); toast(t('saved')); }
@@ -376,22 +386,27 @@
     var room = parts[1] || '';
     var topic = topicOf(room);
     var title = room ? '#' + room : '#' + t('general');
+    var pendImg = null;
     mount('<div class="wrap wide"><div class="tabs"><a class="tab on" data-go="messenger">' + esc(t('tab_feed')) + '</a><a class="tab" data-go="messenger/dm">' + esc(t('tab_dm')) + '</a></div>' +
       '<div class="msgr">' +
       '<aside class="chans card"><div class="chans-h">' + esc(t('channels')) + '<button class="addch" id="addch">+</button></div>' +
       '<div id="chanlist"><div class="spin" style="margin:.5rem auto"></div></div>' +
       '<div id="newch" style="display:none;margin-top:.5rem"><input id="nr" placeholder="' + esc(t('room_ph')) + '"><button class="ghost" id="mkroom" style="width:100%">' + esc(t('create')) + '</button></div></aside>' +
       '<section class="chat card"><div class="chat-h">' + esc(title) + '</div><div id="list" class="feed"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div>' +
-      (me.hasKey ? '<div class="composer"><textarea id="txt" placeholder="' + esc(t('post_ph')) + '"></textarea><div class="row" style="justify-content:flex-end"><span class="msg" id="smsg" style="flex:1"></span><button class="iconbtn pri" id="send" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '<div class="composer mut">' + esc(t('need_id')) + '</div>') +
+      (me.hasKey ? '<div class="composer"><textarea id="txt" placeholder="' + esc(t('post_ph')) + '"></textarea><div class="row"><button class="iconbtn" id="attach" title="' + esc(t('avatar')) + '">' + icon('photo') + '</button><span class="msg" id="smsg" style="flex:1"></span><button class="iconbtn pri" id="send" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '<div class="composer mut">' + esc(t('need_id')) + '</div>') +
       '</section></div></div>', function () {
         renderChannels(room);
         document.getElementById('addch').onclick = function () { var n = document.getElementById('newch'); n.style.display = n.style.display === 'none' ? 'block' : 'none'; };
         document.getElementById('mkroom').onclick = function () { var v = (val('nr') || '').toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 24); if (v) go('messenger', v); };
-        if (me.hasKey) document.getElementById('send').onclick = async function () {
-          var txt = (val('txt') || '').trim(); if (!txt) return; setMsg('smsg', t('sending'));
-          try { await publish({ kind: 1, content: txt, tags: [['t', topic]], created_at: nows() }); document.getElementById('txt').value = ''; setMsg('smsg', ''); loadFeed(topic); }
-          catch (e) { setMsg('smsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
-        };
+        if (me.hasKey) {
+          document.getElementById('attach').onclick = function () { pickImage(900, 180000, function (d) { pendImg = d; document.getElementById('attach').classList.add('onv'); toast(t('saved')); }); };
+          document.getElementById('send').onclick = async function () {
+            var txt = (val('txt') || '').trim(); if (!txt && !pendImg) return; setMsg('smsg', t('sending'));
+            var tags = [['t', topic]]; if (pendImg) tags.push(['image', pendImg]);
+            try { await publish({ kind: 1, content: txt, tags: tags, created_at: nows() }); document.getElementById('txt').value = ''; pendImg = null; document.getElementById('attach').classList.remove('onv'); setMsg('smsg', ''); loadFeed(topic); }
+            catch (e) { setMsg('smsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
+          };
+        }
         loadFeed(topic);
       });
   }
@@ -412,7 +427,7 @@
       var evs = await query({ kinds: [1], '#t': [topic], limit: 100 });
       evs = evs.filter(function (e) { return hasTag(e, topic) && !spammy(e); }).sort(function (a, b) { return a.created_at - b.created_at; });
       if (!evs.length) { list.innerHTML = '<div class="empty">' + esc(t('feed_empty')) + '</div>'; return; }
-      list.innerHTML = evs.map(function (e) { return '<div class="item" data-pk="' + esc(e.pubkey) + '"><span class="who">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div></div>'; }).join('');
+      list.innerHTML = evs.map(function (e) { return '<div class="item" data-pk="' + esc(e.pubkey) + '"><span class="who">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div>' + postImg(e) + '</div>'; }).join('');
       list.scrollTop = list.scrollHeight;
       var pks = {}; evs.forEach(function (e) { pks[e.pubkey] = 1; });
       Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { if (p && p.name) list.querySelectorAll('.item[data-pk="' + pk + '"] .who').forEach(function (w) { w.textContent = p.name; }); }); });
@@ -662,16 +677,19 @@
       });
   }
   function commFeed(topic) {
-    var body = document.getElementById('cbody'); if (!body) return;
-    body.innerHTML = (me.hasKey ? '<div class="card"><textarea id="ct" placeholder="' + esc(t('comm_post_ph')) + '"></textarea><div class="row" style="justify-content:flex-end"><span class="msg" id="ctm" style="flex:1"></span><button class="iconbtn pri" id="cpost" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '') + '<div id="cfeed"><div class="spin" style="margin:1rem auto"></div></div>';
-    if (me.hasKey) document.getElementById('cpost').onclick = async function () { var txt = (val('ct') || '').trim(); if (!txt) return; setMsg('ctm', t('sending')); try { await publish({ kind: 1, content: txt, tags: [['t', topic]], created_at: nows() }); document.getElementById('ct').value = ''; setMsg('ctm', ''); loadCommFeed(topic); } catch (e) { setMsg('ctm', t('offline'), 'err'); } };
+    var body = document.getElementById('cbody'); if (!body) return; var pendImg = null;
+    body.innerHTML = (me.hasKey ? '<div class="card"><textarea id="ct" placeholder="' + esc(t('comm_post_ph')) + '"></textarea><div class="row"><button class="iconbtn" id="cattach" title="' + esc(t('avatar')) + '">' + icon('photo') + '</button><span class="msg" id="ctm" style="flex:1"></span><button class="iconbtn pri" id="cpost" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '') + '<div id="cfeed"><div class="spin" style="margin:1rem auto"></div></div>';
+    if (me.hasKey) {
+      document.getElementById('cattach').onclick = function () { pickImage(900, 180000, function (d) { pendImg = d; document.getElementById('cattach').classList.add('onv'); toast(t('saved')); }); };
+      document.getElementById('cpost').onclick = async function () { var txt = (val('ct') || '').trim(); if (!txt && !pendImg) return; setMsg('ctm', t('sending')); var tags = [['t', topic]]; if (pendImg) tags.push(['image', pendImg]); try { await publish({ kind: 1, content: txt, tags: tags, created_at: nows() }); document.getElementById('ct').value = ''; pendImg = null; document.getElementById('cattach').classList.remove('onv'); setMsg('ctm', ''); loadCommFeed(topic); } catch (e) { setMsg('ctm', t('offline'), 'err'); } };
+    }
     loadCommFeed(topic);
   }
   async function loadCommFeed(topic) {
     var box = document.getElementById('cfeed'); if (!box) return;
     try { var evs = (await query({ kinds: [1], '#t': [topic], limit: 100 })).filter(function (e) { return hasTag(e, topic) && !spammy(e); }).sort(function (a, b) { return b.created_at - a.created_at; });
       if (!evs.length) { box.innerHTML = '<div class="empty">' + esc(t('feed_empty')) + '</div>'; return; }
-      box.innerHTML = evs.map(function (e) { return '<div class="card"><span class="who" data-pk="' + esc(e.pubkey) + '">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div></div>'; }).join('');
+      box.innerHTML = evs.map(function (e) { return '<div class="card"><span class="who" data-pk="' + esc(e.pubkey) + '">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div>' + postImg(e) + '</div>'; }).join('');
       var pks = {}; evs.forEach(function (e) { pks[e.pubkey] = 1; }); Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { if (p && p.name) box.querySelectorAll('.who[data-pk="' + pk + '"]').forEach(function (w) { w.textContent = p.name; }); }); });
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }

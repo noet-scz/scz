@@ -181,3 +181,7 @@ button.onv{border-color:var(--acc);color:var(--fg)}
 .tile .lbl{position:absolute;left:.4rem;bottom:.4rem;background:rgba(0,0,0,.55);color:#fff;font-size:.76rem;padding:.12rem .5rem;border-radius:999px}
 .callbar{display:flex;gap:.5rem;flex-wrap:wrap}
 .callbar .danger{margin-left:auto}
+
+/* инлайн-картинки в постах */
+.postimg{max-width:100%;max-height:24rem;border-radius:10px;margin-top:.5rem;display:block;object-fit:cover}
+.item .postimg{max-width:22rem}
