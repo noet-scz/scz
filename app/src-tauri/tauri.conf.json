@@ -27,7 +27,7 @@
     "category": "SocialNetworking",
     "shortDescription": "Узел SCZ",
     "longDescription": "SCZ — узел зоны: личность, связь, самообновление. Сайты, мессенджер, игры и репутация открываются в браузере через узел.",
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

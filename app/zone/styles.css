@@ -1,4 +1,4 @@
-/* SCZ зона — дизайн перенесён с расширения (палитра, радиальный фон, шапка, карточки). */
+/* SCZ зона, Фаза-0: браузерный SPA поверх узла, без лишних вкладок и декоративной мишуры. */
 :root{
   --bg:#0a0a0d; --panel:#121219; --panel2:#16161f; --bd:#23232e; --bd2:#30303c;
   --fg:#f1f1f5; --mut:#9595a3; --acc:#7c5cff; --acc2:#9d8bff; --ok:#3ddc97; --err:#ff7b8a;
@@ -31,18 +31,18 @@ a{color:var(--acc2);text-decoration:none;cursor:pointer}
 .hchip .nm{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hchip .tg{color:var(--acc2);font-size:.72rem;font-family:ui-monospace,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.wrap{max-width:44rem;margin:0 auto;padding:1.4rem 1.3rem 5rem}
-.wrap.wide{max-width:54rem}
-h1{font-size:1.6rem;margin:0 0 .9rem;letter-spacing:-.3px}
-h2{font-size:1.1rem;margin:1.5rem 0 .6rem}
-.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--bd);border-radius:16px;padding:1.2rem 1.3rem;margin-bottom:1rem;box-shadow:0 10px 36px rgba(0,0,0,.28)}
+.wrap{max-width:48rem;margin:0 auto;padding:1.4rem 1.3rem 5rem}
+.wrap.wide{max-width:60rem}
+h1{font-size:1.7rem;margin:0 0 .9rem;letter-spacing:-.3px}
+h2{font-size:1.08rem;margin:1.4rem 0 .65rem}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--bd);border-radius:18px;padding:1.15rem 1.25rem;margin-bottom:1rem;box-shadow:0 10px 36px rgba(0,0,0,.28)}
 label{display:block;color:var(--mut);font-size:.8rem;margin:.2rem 0 .4rem}
 input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--bd2);color:var(--fg);border-radius:11px;padding:.7rem .85rem;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:.55rem}
 input:focus,textarea:focus,select:focus{border-color:var(--acc);box-shadow:var(--ring)}
 input::placeholder,textarea::placeholder{color:#5a5a68}
 textarea{resize:vertical;min-height:5rem;line-height:1.5}
 textarea.code{font:13px ui-monospace,Menlo,monospace;min-height:12rem}
-button{background:var(--acc);border:0;color:#fff;border-radius:11px;padding:.6rem 1.2rem;font:inherit;font-weight:600;cursor:pointer;transition:background .15s,transform .04s}
+button{background:var(--acc);border:0;color:#fff;border-radius:12px;padding:.62rem 1.2rem;font:inherit;font-weight:600;cursor:pointer;transition:background .15s,transform .04s}
 button:hover{background:#6b4dff}button:active{transform:translateY(1px)}
 button.ghost{background:0;border:1px solid var(--bd2);color:var(--mut);font-weight:500;padding:.5rem .9rem}
 button.ghost:hover{border-color:var(--acc);color:var(--fg)}
@@ -92,9 +92,12 @@ button:disabled{opacity:.5;cursor:default}
 .chat{display:flex;flex-direction:column;padding:0;overflow:hidden}
 .chat-h{padding:.65rem .95rem;border-bottom:1px solid var(--bd);font-weight:700}
 .feed{padding:.7rem .95rem;max-height:56vh;overflow:auto}
-.item{padding:.5rem 0;border-bottom:1px solid var(--bd)}
+.item{display:flex;gap:.7rem;padding:.7rem 0;border-bottom:1px solid var(--bd)}
 .item:last-child{border-bottom:0}
-.item .who{color:var(--acc2);font-weight:600;font-size:.9rem}.item .when{color:var(--mut);font-size:.76rem;margin-left:.4rem}
+.itemavwrap{width:34px;height:34px;flex:0 0 34px;margin-top:.1rem}
+.itemav{width:34px;height:34px;border-radius:50%;object-fit:cover;display:block}
+.itembody{min-width:0;flex:1}
+.item .who{color:var(--acc2);font-weight:650;font-size:.9rem}.item .when{color:var(--mut);font-size:.76rem;margin-left:.4rem}
 .item .txt{white-space:pre-wrap;word-break:break-word;margin:.25rem 0 0}
 .composer{padding:.7rem .95rem;border-top:1px solid var(--bd)}
 .composer textarea{min-height:3.2rem;margin-bottom:.4rem}

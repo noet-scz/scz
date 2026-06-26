@@ -7,7 +7,13 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "build:linux": "tauri build --bundles appimage,deb,rpm",
+    "build:windows": "tauri build --bundles nsis,msi",
+    "android:init": "tauri android init",
+    "build:android:apk": "tauri android build --apk --debug"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

@@ -1,5 +1,5 @@
 // SCZ зона: SPA в браузере, отдаётся локальным узлом. Подпись в узле (/api/nostr/sign),
-// данные на публичных реле. Дизайн перенесён с расширения.
+// данные на публичных реле. Фаза-0 временно использует Nostr/IPFS, целевой слой в роадмапе.
 (function () {
   'use strict';
   var RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
@@ -20,8 +20,9 @@
       guest: 'Гость', create_id: 'Создать личность', no_tag: 'имя не занято',
       id_title: 'Личность', have_key: 'Уже есть ключ?', import_ph: 'приватный ключ (64 hex)', import: 'Импортировать', bad_key: 'Ключ должен быть 64 hex.',
       backup_t: 'Сохрани ключ', backup_w: 'Потеряешь ключ, потеряешь личность. Скопируй и спрячь.',
-      copy: 'Скопировать', copied: 'Скопировано', done: 'Готово',
+      copy: 'Скопировать', copied: 'Скопировано', done: 'Готово', you: 'ты', participant: 'участник', delete: 'Удалить', wiki_edit: 'Править',
       nick: 'Имя', nick_ph: 'как тебя показывать', about: 'О себе', about_ph: 'пара слов о тебе', avatar: 'Аватар', avatar_ph: 'ссылка на картинку', save: 'Сохранить', saved: 'Сохранено.', change_tag: 'сменить тег', tag_ph: 'тег (имя)',
+      attach_image: 'Прикрепить изображение', image_ready: 'Изображение прикреплено.',
       pubkey: 'Публичный ключ', show_key: 'Показать ключ', hide: 'Спрятать',
       rep_t: 'Репутация', rep_posts: 'сообщений', rep_react: 'реакций', rep_sites: 'сайтов', rep_days: 'дней в сети', rep_score: 'счёт',
       need_id: 'Нужна личность: создай её в профиле.',
@@ -49,8 +50,9 @@
       guest: 'Guest', create_id: 'Create identity', no_tag: 'no name yet',
       id_title: 'Identity', have_key: 'Already have a key?', import_ph: 'private key (64 hex)', import: 'Import', bad_key: 'Key must be 64 hex.',
       backup_t: 'Back up your key', backup_w: 'Lose the key, lose the identity. Copy and store it.',
-      copy: 'Copy', copied: 'Copied', done: 'Done',
+      copy: 'Copy', copied: 'Copied', done: 'Done', you: 'you', participant: 'participant', delete: 'Delete', wiki_edit: 'Edit',
       nick: 'Name', nick_ph: 'how to show you', about: 'About', about_ph: 'a few words about you', avatar: 'Avatar', avatar_ph: 'image link', save: 'Save', saved: 'Saved.', change_tag: 'change tag', tag_ph: 'tag (name)',
+      attach_image: 'Attach image', image_ready: 'Image attached.',
       pubkey: 'Public key', show_key: 'Show key', hide: 'Hide',
       rep_t: 'Reputation', rep_posts: 'messages', rep_react: 'reactions', rep_sites: 'sites', rep_days: 'days in network', rep_score: 'score',
       need_id: 'Identity needed: create one in profile.',
@@ -378,6 +380,7 @@
 
   /* ---------- мессенджер ---------- */
   var FEED_TAG = 'scz.zone.feed';
+  var LOCAL_POSTS = {};
   function topicOf(room) { return room ? 'scz.room.' + room : FEED_TAG; }
   function hasTag(ev, v) { return (ev.tags || []).some(function (x) { return x[0] === 't' && x[1] === v; }); }
   function spammy(ev) { return (ev.tags || []).filter(function (x) { return x[0] === 't'; }).length > 12; }
@@ -394,17 +397,17 @@
       '<div id="chanlist"><div class="spin" style="margin:.5rem auto"></div></div>' +
       '<div id="newch" style="display:none;margin-top:.5rem"><input id="nr" placeholder="' + esc(t('room_ph')) + '"><button class="ghost" id="mkroom" style="width:100%">' + esc(t('create')) + '</button></div></aside>' +
       '<section class="chat card"><div class="chat-h">' + esc(title) + '</div><div id="list" class="feed"><div class="empty"><div class="spin" style="margin:0 auto"></div></div></div>' +
-      (me.hasKey ? '<div class="composer"><textarea id="txt" placeholder="' + esc(t('post_ph')) + '"></textarea><div class="row"><button class="iconbtn" id="attach" title="' + esc(t('avatar')) + '">' + icon('photo') + '</button><span class="msg" id="smsg" style="flex:1"></span><button class="iconbtn pri" id="send" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '<div class="composer mut">' + esc(t('need_id')) + '</div>') +
+      (me.hasKey ? '<div class="composer"><textarea id="txt" placeholder="' + esc(t('post_ph')) + '"></textarea><div class="row"><button class="iconbtn" id="attach" title="' + esc(t('attach_image')) + '">' + icon('photo') + '</button><span class="msg" id="smsg" style="flex:1"></span><button class="iconbtn pri" id="send" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '<div class="composer mut">' + esc(t('need_id')) + '</div>') +
       '</section></div></div>', function () {
         renderChannels(room);
         document.getElementById('addch').onclick = function () { var n = document.getElementById('newch'); n.style.display = n.style.display === 'none' ? 'block' : 'none'; };
         document.getElementById('mkroom').onclick = function () { var v = (val('nr') || '').toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 24); if (v) go('messenger', v); };
         if (me.hasKey) {
-          document.getElementById('attach').onclick = function () { pickImage(900, 180000, function (d) { pendImg = d; document.getElementById('attach').classList.add('onv'); toast(t('saved')); }); };
+          document.getElementById('attach').onclick = function () { pickImage(900, 180000, function (d) { pendImg = d; document.getElementById('attach').classList.add('onv'); toast(t('image_ready')); }); };
           document.getElementById('send').onclick = async function () {
             var txt = (val('txt') || '').trim(); if (!txt && !pendImg) return; setMsg('smsg', t('sending'));
             var tags = [['t', topic]]; if (pendImg) tags.push(['image', pendImg]);
-            try { await publish({ kind: 1, content: txt, tags: tags, created_at: nows() }); document.getElementById('txt').value = ''; pendImg = null; document.getElementById('attach').classList.remove('onv'); setMsg('smsg', ''); loadFeed(topic); }
+            try { var ev = await publish({ kind: 1, content: txt, tags: tags, created_at: nows() }); (LOCAL_POSTS[topic] = LOCAL_POSTS[topic] || []).push(ev); document.getElementById('txt').value = ''; pendImg = null; document.getElementById('attach').classList.remove('onv'); setMsg('smsg', ''); loadFeed(topic); }
             catch (e) { setMsg('smsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
           };
         }
@@ -426,12 +429,14 @@
     var list = document.getElementById('list'); if (!list) return;
     try {
       var evs = await query({ kinds: [1], '#t': [topic], limit: 100 });
+      evs = evs.concat(LOCAL_POSTS[topic] || []);
+      var seen = {}; evs = evs.filter(function (e) { if (!e || !e.id || seen[e.id]) return false; seen[e.id] = 1; return true; });
       evs = evs.filter(function (e) { return hasTag(e, topic) && !spammy(e); }).sort(function (a, b) { return a.created_at - b.created_at; });
       if (!evs.length) { list.innerHTML = '<div class="empty">' + esc(t('feed_empty')) + '</div>'; return; }
-      list.innerHTML = evs.map(function (e) { return '<div class="item" data-pk="' + esc(e.pubkey) + '"><span class="who">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div>' + postImg(e) + '</div>'; }).join('');
+      list.innerHTML = evs.map(function (e) { return '<div class="item" data-pk="' + esc(e.pubkey) + '"><div class="itemavwrap">' + avImg(e.pubkey, '', '', 34, 'itemav') + '</div><div class="itembody"><span class="who">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + esc(e.content) + '</div>' + postImg(e) + '</div></div>'; }).join('');
       list.scrollTop = list.scrollHeight;
       var pks = {}; evs.forEach(function (e) { pks[e.pubkey] = 1; });
-      Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { if (p && p.name) list.querySelectorAll('.item[data-pk="' + pk + '"] .who').forEach(function (w) { w.textContent = p.name; }); }); });
+      Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { var nm = (p && p.name) || npubShort(pk); list.querySelectorAll('.item[data-pk="' + pk + '"]').forEach(function (it) { var w = it.querySelector('.who'); if (w) w.textContent = nm; var aw = it.querySelector('.itemavwrap'); if (aw) aw.innerHTML = avImg(pk, nm, p && p.picture, 34, 'itemav'); }); }); });
     } catch (e) { list.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
 
@@ -440,6 +445,13 @@
   function isTestName(n) { return /^p\d+-[0-9a-f]{5,}\.(me|nt)$/i.test(n || ''); }
   function validDomain(s) { s = String(s || '').trim().toLowerCase(); return (/^[a-z0-9][a-z0-9-]{0,61}\.[a-z]{2,24}$/.test(s) && !isTestName(s)) ? s : null; }
   function slugName(s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48); }
+  async function domainOwner(name) {
+    var n = validDomain(name); if (!n) return null;
+    var evs = await query([{ kinds: [KIND.claim], '#d': [n], limit: 100 }, { kinds: [5], limit: 200 }]);
+    var del = {}; evs.filter(function (e) { return e.kind === 5; }).forEach(function (e) { (e.tags || []).forEach(function (x) { if (x[0] === 'e') del[x[1]] = 1; }); });
+    var claims = evs.filter(function (e) { return e.kind === KIND.claim && !del[e.id] && ((e.tags.find(function (x) { return x[0] === 'd'; }) || [])[1] === n); }).sort(function (a, b) { return a.created_at - b.created_at; });
+    return claims[0] ? claims[0].pubkey : null;
+  }
   function vSites() {
     var parts = route().parts;
     if (parts[1] === 'open' && parts[2]) return vSiteView(parts[2]);
@@ -457,7 +469,13 @@
             if (!v) { setMsg('cmsg', t('bad_domain'), 'err'); return; }
             if ((me.names || []).indexOf(v) >= 0) { setMsg('cmsg', t('taken'), 'err'); return; }
             setMsg('cmsg', '…');
-            try { await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() }); setMsg('cmsg', t('published'), 'ok'); me.names = (me.names || []).concat([v]); if (!me.handle) me.handle = v; loadNames(); } catch (e) { setMsg('cmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
+            try {
+              var r = await repCells(me.pubkey).catch(function () { return { score: 0 }; });
+              if (r.score < MIN_REP) { setMsg('cmsg', t('need_rep'), 'err'); return; }
+              var owner = await domainOwner(v);
+              if (owner && owner !== me.pubkey) { setMsg('cmsg', t('taken'), 'err'); return; }
+              await publish({ kind: KIND.claim, content: '', tags: [['d', v], ['t', 'noet-name']], created_at: nows() }); setMsg('cmsg', t('published'), 'ok'); me.names = (me.names || []).concat([v]); if (!me.handle) me.handle = v; loadNames();
+            } catch (e) { setMsg('cmsg', noKey(e) ? t('need_id') : t('offline'), 'err'); }
           };
         }
       });
@@ -642,7 +660,7 @@
           document.getElementById('wback').onclick = index;
           if (me.hasKey) {
             document.getElementById('wedit').onclick = function () { edit(sl); };
-            document.getElementById('wdel').innerHTML = icon('back'); document.getElementById('wdel').title = t('delete');
+            document.getElementById('wdel').innerHTML = icon('trash'); document.getElementById('wdel').title = t('delete');
             document.getElementById('wdel').onclick = async function () { if (!confirm(t('wiki_del_q'))) return; setMsg('wmsg', '…'); try { await artifact.publish({ key: sl, topic: WIKI_TOPIC, content: '', tags: [['title', titleOf(ev)], ['deleted', '1']] }); await load(); index(); } catch (e) { setMsg('wmsg', t('offline'), 'err'); } };
           }
           wire();
@@ -700,20 +718,20 @@
   }
   function commFeed(topic) {
     var body = document.getElementById('cbody'); if (!body) return; var pendImg = null;
-    body.innerHTML = (me.hasKey ? '<div class="card"><textarea id="ct" placeholder="' + esc(t('comm_post_ph')) + '"></textarea><div class="row"><button class="iconbtn" id="cattach" title="' + esc(t('avatar')) + '">' + icon('photo') + '</button><span class="msg" id="ctm" style="flex:1"></span><button class="iconbtn pri" id="cpost" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '') + '<div id="cfeed"><div class="spin" style="margin:1rem auto"></div></div>';
+    body.innerHTML = (me.hasKey ? '<div class="card"><textarea id="ct" placeholder="' + esc(t('comm_post_ph')) + '"></textarea><div class="row"><button class="iconbtn" id="cattach" title="' + esc(t('attach_image')) + '">' + icon('photo') + '</button><span class="msg" id="ctm" style="flex:1"></span><button class="iconbtn pri" id="cpost" title="' + esc(t('send')) + '">' + icon('send') + '</button></div></div>' : '') + '<div id="cfeed"><div class="spin" style="margin:1rem auto"></div></div>';
     if (me.hasKey) {
-      document.getElementById('cattach').onclick = function () { pickImage(900, 180000, function (d) { pendImg = d; document.getElementById('cattach').classList.add('onv'); toast(t('saved')); }); };
-      document.getElementById('cpost').onclick = async function () { var txt = (val('ct') || '').trim(); if (!txt && !pendImg) return; setMsg('ctm', t('sending')); var tags = [['t', topic]]; if (pendImg) tags.push(['image', pendImg]); try { await publish({ kind: 1, content: txt, tags: tags, created_at: nows() }); document.getElementById('ct').value = ''; pendImg = null; document.getElementById('cattach').classList.remove('onv'); setMsg('ctm', ''); loadCommFeed(topic); } catch (e) { setMsg('ctm', t('offline'), 'err'); } };
+      document.getElementById('cattach').onclick = function () { pickImage(900, 180000, function (d) { pendImg = d; document.getElementById('cattach').classList.add('onv'); toast(t('image_ready')); }); };
+      document.getElementById('cpost').onclick = async function () { var txt = (val('ct') || '').trim(); if (!txt && !pendImg) return; setMsg('ctm', t('sending')); var tags = [['t', topic]]; if (pendImg) tags.push(['image', pendImg]); try { var ev = await publish({ kind: 1, content: txt, tags: tags, created_at: nows() }); (LOCAL_POSTS[topic] = LOCAL_POSTS[topic] || []).push(ev); document.getElementById('ct').value = ''; pendImg = null; document.getElementById('cattach').classList.remove('onv'); setMsg('ctm', ''); loadCommFeed(topic); } catch (e) { setMsg('ctm', t('offline'), 'err'); } };
     }
     loadCommFeed(topic);
   }
   async function loadCommFeed(topic) {
     var box = document.getElementById('cfeed'); if (!box) return;
-    try { var evs = (await query({ kinds: [1], '#t': [topic], limit: 100 })).filter(function (e) { return hasTag(e, topic) && !spammy(e); }).sort(function (a, b) { return b.created_at - a.created_at; });
+    try { var remote = await query({ kinds: [1], '#t': [topic], limit: 100 }); var evs = remote.concat(LOCAL_POSTS[topic] || []); var seen = {}; evs = evs.filter(function (e) { if (!e || !e.id || seen[e.id]) return false; seen[e.id] = 1; return true; }).filter(function (e) { return hasTag(e, topic) && !spammy(e); }).sort(function (a, b) { return b.created_at - a.created_at; });
       if (!evs.length) { box.innerHTML = '<div class="empty">' + esc(t('feed_empty')) + '</div>'; return; }
-      box.innerHTML = evs.map(function (e) { var cr = callRoom(e.content); var txt = cr ? '<button class="ghost calljoin" data-room="' + esc(cr) + '">' + icon('video') + ' ' + esc(t('nav_call')) + '</button>' : esc(e.content); return '<div class="card"><span class="who" data-pk="' + esc(e.pubkey) + '">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + txt + '</div>' + postImg(e) + '</div>'; }).join('');
+      box.innerHTML = evs.map(function (e) { var cr = callRoom(e.content); var txt = cr ? '<button class="ghost calljoin" data-room="' + esc(cr) + '">' + icon('video') + ' ' + esc(t('nav_call')) + '</button>' : esc(e.content); return '<div class="item" data-pk="' + esc(e.pubkey) + '"><div class="itemavwrap">' + avImg(e.pubkey, '', '', 34, 'itemav') + '</div><div class="itembody"><span class="who">' + esc(e.pubkey.slice(0, 8) + '…') + '</span><span class="when">' + esc(when(e.created_at)) + '</span><div class="txt">' + txt + '</div>' + postImg(e) + '</div></div>'; }).join('');
       box.querySelectorAll('.calljoin').forEach(function (b) { b.onclick = function () { var r = b.dataset.room; runCall(r, r === me.pubkey, location.hash); }; });
-      var pks = {}; evs.forEach(function (e) { pks[e.pubkey] = 1; }); Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { if (p && p.name) box.querySelectorAll('.who[data-pk="' + pk + '"]').forEach(function (w) { w.textContent = p.name; }); }); });
+      var pks = {}; evs.forEach(function (e) { pks[e.pubkey] = 1; }); Object.keys(pks).forEach(function (pk) { profileOf(pk).then(function (p) { var nm = (p && p.name) || npubShort(pk); box.querySelectorAll('.item[data-pk="' + pk + '"]').forEach(function (it) { var w = it.querySelector('.who'); if (w) w.textContent = nm; var aw = it.querySelector('.itemavwrap'); if (aw) aw.innerHTML = avImg(pk, nm, p && p.picture, 34, 'itemav'); }); }); });
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
   }
   function govBody(coord, govTopic) {
@@ -766,7 +784,7 @@
         boot();
       });
     var grid = function () { return document.getElementById('grid'); };
-    function tileLabel(p) { return p === ME ? t('you') : (p && p.length === 64 ? p.slice(0, 8) + '…' : 'участник'); }
+    function tileLabel(p) { return p === ME ? t('you') : (p && p.length === 64 ? p.slice(0, 8) + '…' : t('participant')); }
     function upsertTile(key, stream, isMe) { var tl = tiles.get(key); if (!tl) { tl = document.createElement('div'); tl.className = 'tile' + (isMe ? ' me' : ''); tl.innerHTML = '<video autoplay playsinline ' + (isMe ? 'muted' : '') + '></video><span class="lbl"></span>'; if (grid()) grid().appendChild(tl); tiles.set(key, tl); } var v = tl.querySelector('video'); if (stream && v.srcObject !== stream) v.srcObject = stream; tl.querySelector('.lbl').textContent = tileLabel(key); }
     function removeTile(k) { var tl = tiles.get(k); if (tl) { try { tl.remove(); } catch (e) {} tiles.delete(k); } }
     function makePc(rp) {
