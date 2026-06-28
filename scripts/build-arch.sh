@@ -51,5 +51,6 @@ fi
 find src-tauri/target/release/bundle -type f \
   \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \) \
   -exec cp -t "$OUT" {} + || true
+(cd "$OUT" && for f in *; do [ -e "$f" ] || continue; nf=$(echo "$f" | sed 's/^SCZ/noet/; s/^scz/noet/'); [ "$f" = "$nf" ] || mv "$f" "$nf"; done)
 
 echo "Desktop bundles copied to $OUT"

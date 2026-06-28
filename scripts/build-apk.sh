@@ -12,6 +12,9 @@ npm install
 npx tauri android init
 npx tauri android build --apk --debug
 
-find src-tauri/gen/android -name '*.apk' -exec cp -t "$OUT" {} + || true
+apk=$(find src-tauri/gen/android -name '*.apk' | head -1 || true)
+if [[ -n "$apk" ]]; then
+  cp "$apk" "$OUT/noet-0.1.0-universal-debug.apk"
+fi
 
 echo "APK copied to $OUT"
