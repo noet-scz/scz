@@ -56,11 +56,25 @@ jobs:
         working-directory: app/src-tauri
         run: cargo test --locked || cargo test
 
+      - name: Disable updater artifacts when signing key is absent
+        shell: bash
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python - <<'PY'
+import json
+from pathlib import Path
+p = Path('src-tauri/tauri.conf.json')
+data = json.loads(p.read_text())
+data.setdefault('bundle', {})['createUpdaterArtifacts'] = False
+p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+PY
+          fi
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build
         run: npx tauri build
         env:
-          # Для self-update артефактов: включи createUpdaterArtifacts в tauri.conf.json
-          # и добавь эти секреты в репозиторий (Settings → Secrets → Actions).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
@@ -121,11 +135,30 @@ jobs:
       - run: npm install
       - run: npx tauri icon src-tauri/icons/icon-source.png
 
+      - name: Disable updater artifacts when signing key is absent
+        shell: bash
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python - <<'PY'
+import json
+from pathlib import Path
+p = Path('src-tauri/tauri.conf.json')
+data = json.loads(p.read_text())
+data.setdefault('bundle', {})['createUpdaterArtifacts'] = False
+p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+PY
+          fi
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Android init
         run: npx tauri android init
 
       - name: Build APK (debug, installable via sideload)
         run: npx tauri android build --apk --debug
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Collect APK
         if: always()
