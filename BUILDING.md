@@ -1,4 +1,4 @@
-# SCZ build notes
+# noet build notes
 
 ## Arch Linux
 - Install deps: `scripts/setup-arch.sh`

@@ -1,13 +1,13 @@
 [package]
-name = "scz"
+name = "noet"
 version = "0.1.0"
-description = "SCZ — Самоуправляемая Цифровая Зона"
-authors = ["SCZ"]
+description = "noet, self-governed digital zone client"
+authors = ["noet"]
 edition = "2021"
 rust-version = "1.77"
 
 [lib]
-name = "scz_lib"
+name = "noet_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

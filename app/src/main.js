@@ -1,11 +1,11 @@
-// SCZ, нативное окно узла = панель управления. Личность и аккаунты хранятся в узле,
+// noet, нативное окно узла = панель управления. Личность и аккаунты хранятся в узле,
 // поэтому управление ими тут, а зона в браузере. Открыть зону, аккаунты, хранилище,
 // язык, уведомления, обновление.
 const invoke = (c, a) => window.__TAURI__.core.invoke(c, a);
 
 const DICT = {
   ru: {
-    open: 'Открыть SCZ', accounts: 'Аккаунты', active: 'активный', create: 'Создать аккаунт',
+    open: 'Открыть noet', accounts: 'Аккаунты', active: 'активный', create: 'Создать аккаунт',
     have_key: 'Уже есть ключ? Импортируй:', add_ph: 'приватный ключ (64 hex)', add: 'Импортировать', bad_key: 'Ключ должен быть 64 hex.',
     backup_t: 'Сохрани ключ', backup_w: 'Потеряешь ключ, потеряешь личность. Скопируй и спрячь.', done: 'Готово', copied: 'Скопировано',
     storage: 'Хранилище', used: 'занято', accs: 'аккаунтов', notif: 'Уведомления',
@@ -13,7 +13,7 @@ const DICT = {
     check_upd: 'Обновления', up_to_date: 'Последняя версия.', update_found: 'Доступна', install: 'Обновить', updating: '…', upd_err: 'Обновление недоступно.', no_accs: 'Аккаунтов нет. Создай первый.',
   },
   en: {
-    open: 'Open SCZ', accounts: 'Accounts', active: 'active', create: 'Create account',
+    open: 'Open noet', accounts: 'Accounts', active: 'active', create: 'Create account',
     have_key: 'Already have a key? Import:', add_ph: 'private key (64 hex)', add: 'Import', bad_key: 'Key must be 64 hex.',
     backup_t: 'Back up your key', backup_w: 'Lose the key, lose the identity. Copy and store it.', done: 'Done', copied: 'Copied',
     storage: 'Storage', used: 'used', accs: 'accounts', notif: 'Notifications',
@@ -21,7 +21,7 @@ const DICT = {
     check_upd: 'Updates', up_to_date: 'Latest version.', update_found: 'Available', install: 'Update', updating: '…', upd_err: 'Update unavailable.', no_accs: 'No accounts. Create the first.',
   },
 };
-let lang = localStorage.getItem('scz_lang') || 'ru';
+let lang = localStorage.getItem('noet_lang') || 'ru';
 const t = (k) => (DICT[lang] && DICT[lang][k]) || DICT.ru[k] || k;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -66,7 +66,7 @@ function fmt(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(
 function ib(name, ic, title) { return '<button class="iconbtn" id="' + name + '" title="' + esc(title) + '">' + icon(ic) + '</button>'; }
 
 function render() {
-  const notif = localStorage.getItem('scz_notif') === '1';
+  const notif = localStorage.getItem('noet_notif') === '1';
   const accHtml = accs.accounts.length ? accs.accounts.map((pk) => {
     const info = nameMap[pk] || {};
     const nm = info.name || shortPk(pk);
@@ -79,7 +79,7 @@ function render() {
 
   document.getElementById('app').innerHTML = `
     <div class="page">
-      <div class="top"><div class="brand"><img src="./logo.svg"><b>SCZ</b></div>
+      <div class="top"><div class="brand"><img src="./logo.svg"><b>noet</b></div>
         <span class="seg"><button data-l="ru" class="${lang === 'ru' ? 'on' : ''}">RU</button><button data-l="en" class="${lang === 'en' ? 'on' : ''}">EN</button></span></div>
 
       <button class="pri big" id="open">${icon('open')}<span>${esc(t('open'))}</span></button>
@@ -101,8 +101,8 @@ function render() {
     </div>`;
 
   document.getElementById('open').onclick = () => invoke('open_zone').catch(() => {});
-  document.querySelectorAll('[data-l]').forEach((b) => { b.onclick = () => { lang = b.dataset.l; localStorage.setItem('scz_lang', lang); render(); }; });
-  document.getElementById('ntog').onclick = (e) => { const on = e.target.classList.toggle('on'); localStorage.setItem('scz_notif', on ? '1' : '0'); };
+  document.querySelectorAll('[data-l]').forEach((b) => { b.onclick = () => { lang = b.dataset.l; localStorage.setItem('noet_lang', lang); render(); }; });
+  document.getElementById('ntog').onclick = (e) => { const on = e.target.classList.toggle('on'); localStorage.setItem('noet_notif', on ? '1' : '0'); };
   document.querySelectorAll('[data-sw]').forEach((b) => { b.onclick = async () => { await invoke('identity_switch', { pubkey: b.dataset.sw }); await refresh(); render(); }; });
 
   const amsg = document.getElementById('amsg');
@@ -125,7 +125,7 @@ function render() {
 }
 
 function backup(nsec) {
-  document.getElementById('app').innerHTML = `<div class="page"><div class="top"><div class="brand"><img src="./logo.svg"><b>SCZ</b></div></div>
+  document.getElementById('app').innerHTML = `<div class="page"><div class="top"><div class="brand"><img src="./logo.svg"><b>noet</b></div></div>
     <h2 style="margin:.4rem 0 .2rem">${esc(t('backup_t'))}</h2><p class="mut" style="margin:.2rem 0 1rem">${esc(t('backup_w'))}</p>
     <div class="card"><div class="row" style="gap:.5rem;align-items:flex-start"><div class="mono" style="flex:1">${esc(nsec)}</div><button class="iconbtn" id="cp" title="${esc(t('copied'))}">${icon('copy')}</button></div><div class="row" style="margin-top:.7rem"><button class="pri" id="dn"><span>${esc(t('done'))}</span></button></div></div></div>`;
   document.getElementById('cp').onclick = async () => { try { await navigator.clipboard.writeText(nsec); const e = document.getElementById('cp'); e.innerHTML = icon('check'); } catch {} };
@@ -133,7 +133,7 @@ function backup(nsec) {
 }
 
 async function boot() {
-  if (!window.__TAURI__) { document.getElementById('app').innerHTML = '<div class="boot">SCZ</div>'; return; }
+  if (!window.__TAURI__) { document.getElementById('app').innerHTML = '<div class="boot">noet</div>'; return; }
   await refresh();
   render();
 }

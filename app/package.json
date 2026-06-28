@@ -1,7 +1,7 @@
 {
-  "name": "scz",
+  "name": "noet",
   "version": "0.1.0",
-  "description": "SCZ — Самоуправляемая Цифровая Зона. Клиент на Tauri v2.",
+  "description": "noet, self-governed digital zone client on Tauri v2.",
   "private": true,
   "type": "module",
   "scripts": {

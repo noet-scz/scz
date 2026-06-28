@@ -1981,6 +1981,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
+name = "noet"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "base64 0.22.1",
+ "cbc",
+ "futures-util",
+ "hex",
+ "include_dir",
+ "open",
+ "rand",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-updater",
+ "tiny_http",
+ "tokio",
+ "tokio-tungstenite",
+ "ureq",
+]
+
+[[package]]
 name = "num-conv"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2894,31 +2919,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "scz"
-version = "0.1.0"
-dependencies = [
- "aes",
- "base64 0.22.1",
- "cbc",
- "futures-util",
- "hex",
- "include_dir",
- "open",
- "rand",
- "secp256k1",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-updater",
- "tiny_http",
- "tokio",
- "tokio-tungstenite",
- "ureq",
-]
 
 [[package]]
 name = "secp256k1"

@@ -1,4 +1,4 @@
-// SCZ зона: SPA в браузере, отдаётся локальным узлом. Подпись в узле (/api/nostr/sign),
+// noet зона: SPA в браузере, отдаётся локальным узлом. Подпись в узле (/api/nostr/sign),
 // данные на публичных реле. Фаза-0 временно использует Nostr/IPFS, целевой слой в роадмапе.
 (function () {
   'use strict';
@@ -68,9 +68,9 @@
       back: 'Back', offline: 'Relays unreachable, check your connection.', err: 'Failed.',
     },
   };
-  var lang = localStorage.getItem('scz_lang') || 'ru';
+  var lang = localStorage.getItem('noet_lang') || 'ru';
   function t(k) { return (DICT[lang] && DICT[lang][k]) || DICT.ru[k] || k; }
-  function setLang(l) { lang = l; localStorage.setItem('scz_lang', l); render(); }
+  function setLang(l) { lang = l; localStorage.setItem('noet_lang', l); render(); }
 
   /* ---------- helpers ---------- */
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); };
@@ -215,7 +215,7 @@
     var nav = [['messenger', 'nav_msg'], ['comm', 'nav_comm'], ['people', 'nav_people'], ['wiki', 'nav_wiki'], ['sites', 'nav_sites']];
     var chip = '<a class="hchip" data-go="profile">' + avImg(me.pubkey, nick, me.profile && me.profile.picture, 27) +
       '<span class="ci"><span class="nm">' + esc(nick) + '</span>' + (me.hasKey ? '<span class="tg">' + esc(tagText(me.handle, me.pubkey)) + '</span>' : '<span class="tg">' + esc(t('create_id')) + '</span>') + '</span></a>';
-    return '<header class="hdr"><a class="hbrand" data-go="search"><img src="/logo.svg"><span>SCZ</span></a>' +
+    return '<header class="hdr"><a class="hbrand" data-go="search"><img src="/logo.svg"><span>noet</span></a>' +
       '<nav class="hnav">' + nav.map(function (n) { return '<a data-go="' + n[0] + '" class="' + (r === n[0] ? 'on' : '') + '">' + esc(t(n[1])) + '</a>'; }).join('') + '</nav>' + chip + '</header>';
   }
   function mount(inner, after) {
@@ -247,7 +247,7 @@
   }
   function score(m, q) { if (m.handle === q) return 100; if (m.handle.indexOf(q) === 0) return 85; if (m.handle.indexOf(q) >= 0) return 70; if ((m.dn || '').toLowerCase().indexOf(q) >= 0) return 55; if ((m.about || '').toLowerCase().indexOf(q) >= 0) return 30; if ((m.text || '').toLowerCase().indexOf(q) >= 0) return 18; return 0; }
   function vSearch() {
-    mount('<div class="searchpage"><div class="mark"><img src="/logo.svg"><h1>SCZ</h1></div>' +
+    mount('<div class="searchpage"><div class="mark"><img src="/logo.svg"><h1>noet</h1></div>' +
       '<form class="sb" id="sf"><input id="q" placeholder="' + esc(t('search_ph')) + '" autocomplete="off" autofocus>' + ibtn('', 'search', t('search_ph')) + '</form>' +
       '<div id="sres"></div></div>', function () {
         var box = document.getElementById('sres'), inp = document.getElementById('q');
@@ -344,7 +344,7 @@
 
   /* ---------- настройки ---------- */
   function vSettings() {
-    var notif = localStorage.getItem('scz_notif') === '1';
+    var notif = localStorage.getItem('noet_notif') === '1';
     mount('<div class="wrap"><h1>' + esc(t('nav_set')) + '</h1>' +
       '<div class="card"><div class="kv"><span class="k">' + esc(t('set_lang')) + '</span><span class="seg"><button data-l="ru" class="' + (lang === 'ru' ? 'on' : '') + '">RU</button><button data-l="en" class="' + (lang === 'en' ? 'on' : '') + '">EN</button></span></div></div>' +
       '<div class="card"><div style="font-weight:700;margin-bottom:.5rem">' + esc(t('set_accounts')) + '</div><div id="accs"><div class="spin"></div></div>' +
@@ -355,7 +355,7 @@
       '<div class="card"><button class="danger" id="forget">' + esc(t('forget')) + '</button></div>' +
       '</div>', function () {
         document.querySelectorAll('[data-l]').forEach(function (b) { b.onclick = function () { setLang(b.dataset.l); }; });
-        document.getElementById('ntog').onclick = function (e) { var on = e.target.classList.toggle('on'); localStorage.setItem('scz_notif', on ? '1' : '0'); };
+        document.getElementById('ntog').onclick = function (e) { var on = e.target.classList.toggle('on'); localStorage.setItem('noet_notif', on ? '1' : '0'); };
         document.getElementById('addbtn').onclick = async function () { var v = (val('addk') || '').trim().toLowerCase(); var m = v.match(/[0-9a-f]{64}/); if (m) v = m[0]; if (!/^[0-9a-f]{64}$/.test(v)) { setMsg('amsg', t('bad_key'), 'err'); return; } var r = await api.add(v); if (r.error) { setMsg('amsg', t('bad_key'), 'err'); return; } document.getElementById('addk').value = ''; setMsg('amsg', '', 'ok'); loadAccounts(); };
         document.getElementById('newacc').onclick = async function () { try { var r = await api.create(); await refreshMe(); vBackup(r.nsec); } catch (e) { setMsg('amsg', t('err'), 'err'); } };
         document.getElementById('forget').onclick = async function () { if (!confirm(t('forget_q'))) return; await api.forget(); await refreshMe(); render(); };
@@ -379,9 +379,9 @@
   }
 
   /* ---------- мессенджер ---------- */
-  var FEED_TAG = 'scz.zone.feed';
+  var FEED_TAG = 'noet.zone.feed';
   var LOCAL_POSTS = {};
-  function topicOf(room) { return room ? 'scz.room.' + room : FEED_TAG; }
+  function topicOf(room) { return room ? 'noet.room.' + room : FEED_TAG; }
   function hasTag(ev, v) { return (ev.tags || []).some(function (x) { return x[0] === 't' && x[1] === v; }); }
   function spammy(ev) { return (ev.tags || []).filter(function (x) { return x[0] === 't'; }).length > 12; }
   function vMessenger() {
@@ -423,7 +423,7 @@
       box.querySelectorAll('[data-room]').forEach(function (a) { a.onclick = function () { a.dataset.room ? go('messenger', a.dataset.room) : go('messenger'); }; });
     }
     paint(active ? [active] : []);
-    query({ kinds: [1], limit: 200 }).then(function (evs) { var rooms = {}; evs.forEach(function (e) { (e.tags || []).forEach(function (x) { if (x[0] === 't' && x[1].indexOf('scz.room.') === 0) rooms[x[1].slice(9)] = 1; }); }); if (active) rooms[active] = 1; paint(Object.keys(rooms)); });
+    query({ kinds: [1], limit: 200 }).then(function (evs) { var rooms = {}; evs.forEach(function (e) { (e.tags || []).forEach(function (x) { if (x[0] === 't' && x[1].indexOf('noet.room.') === 0) rooms[x[1].slice(9)] = 1; }); }); if (active) rooms[active] = 1; paint(Object.keys(rooms)); });
   }
   async function loadFeed(topic) {
     var list = document.getElementById('list'); if (!list) return;
@@ -531,7 +531,7 @@
       if (!pick) { box.innerHTML = '<div class="empty">' + esc(t('site_none')) + '</div>'; return; }
       var html = await pageHtml(pick.content);
       if (!html) { box.innerHTML = '<div class="empty">' + esc(t('site_none')) + '</div>'; return; }
-      var bridge = '<scr' + 'ipt src="/scz-embed.js"></scr' + 'ipt>';
+      var bridge = '<scr' + 'ipt src="/noet-embed.js"></scr' + 'ipt>';
       html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (m) { return m + bridge; }) : bridge + html;
       var ifr = document.createElement('iframe'); ifr.className = 'sitefull'; box.innerHTML = ''; box.appendChild(ifr); ifr.srcdoc = html;
     } catch (e) { box.innerHTML = '<div class="empty">' + esc(t('offline')) + '</div>'; }
@@ -631,7 +631,7 @@
   }
 
   /* ---------- Вики ---------- */
-  var WIKI_TOPIC = 'scz-wiki';
+  var WIKI_TOPIC = 'noet-wiki';
   function vWiki() {
     var pages = {};
     var slug = function (s) { return String(s || '').toLowerCase().trim().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 48); };
@@ -701,7 +701,7 @@
   }
   async function vCommunity(coord) {
     var tab = route().parts[2] || 'feed';
-    var topic = 'scz.comm:' + coord, govTopic = 'scz.gov:' + coord, joinTopic = 'scz.commjoin:' + coord;
+    var topic = 'noet.comm:' + coord, govTopic = 'noet.gov:' + coord, joinTopic = 'noet.commjoin:' + coord;
     var sp = null; try { sp = await space.get(coord); } catch (e) {}
     var title = sp ? (sp.title || sp.id) : coord;
     mount('<div class="wrap wide"><div class="row" style="margin-bottom:.4rem;justify-content:space-between"><div class="row">' + ibtn('', 'back', t('comm_title')) + '<h1 style="margin:0">' + esc(title) + '</h1></div>' + (me.hasKey ? ibtn('commcall', 'video', t('nav_call')) : '') + '</div>' +
@@ -770,8 +770,8 @@
     if (me.hasKey && room && /^[0-9a-f]{64}$/.test(room)) { runCall(room, room === me.pubkey, '#/messenger'); return; }
     go('messenger');
   }
-  var CALL_MARK = 'scz:call:';
-  function callRoom(c) { var m = /^scz:call:([0-9a-f]{64})$/.exec((c || '').trim()); return m ? m[1] : null; }
+  var CALL_MARK = 'noet:call:';
+  function callRoom(c) { var m = /^noet:call:([0-9a-f]{64})$/.exec((c || '').trim()); return m ? m[1] : null; }
   function runCall(ROOM, IS_HOST, back) {
     var ME = me.pubkey, peers = new Map(), streamOwner = new Map(), tiles = new Map(), localVideoSenders = new Set();
     var localStream = null, camTrack = null, screenTrack = null, sharing = false, micOn = true, camOn = true, sig = null, stopped = false, helloIv = null;

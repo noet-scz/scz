@@ -67,10 +67,12 @@ jobs:
           find src-tauri/target/release/bundle -type f \
             \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.exe' \) \
             -exec cp {} ../out/ \; || true
+          cd ../out
+          for f in *; do [ -e "$f" ] || continue; nf=$(echo "$f" | sed 's/^SCZ/noet/; s/^scz/noet/; s/app-universal-debug/noet-0.1.0-universal-debug/'); [ "$f" = "$nf" ] || mv "$f" "$nf"; done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: scz-${{ matrix.name }}
+          name: noet-${{ matrix.name }}
           path: out/*
           if-no-files-found: warn
       - name: Attach to release
@@ -127,11 +129,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p ../out
-          find src-tauri/gen/android -name '*.apk' -exec cp {} ../out/ \; || true
+          apk=$(find src-tauri/gen/android -name '*.apk' | head -1 || true)
+          if [ -n "$apk" ]; then cp "$apk" ../out/noet-0.1.0-universal-debug.apk; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: scz-android
+          name: noet-android
           path: out/*.apk
           if-no-files-found: warn
       - name: Attach to release

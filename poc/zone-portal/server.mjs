@@ -356,7 +356,7 @@ const server = http.createServer(async (req, res) => {
 
   // статика (host-независимо)
   if (req.method === 'GET' && STATIC[path]) return sendFile(res, STATIC[path]);
-  if (req.method === 'GET' && (path === `/${ZONE_TLD}.pac` || path === '/proxy.pac' || path === '/scz.pac')) {
+  if (req.method === 'GET' && (path === `/${ZONE_TLD}.pac` || path === '/proxy.pac' || path === '/noet.pac')) {
     res.writeHead(200, { 'content-type': 'application/x-ns-proxy-autoconfig', ...cors });
     return res.end(pacFile(req.headers.host || `127.0.0.1:${PORT}`));
   }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "SCZ",
+  "productName": "noet",
   "version": "0.1.0",
-  "identifier": "zone.scz.app",
+  "identifier": "zone.noet.app",
   "build": {
     "frontendDist": "../src"
   },
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "SCZ — узел",
+        "title": "noet, узел",
         "width": 480,
         "height": 800,
         "minWidth": 360,
@@ -25,8 +25,8 @@
     "active": true,
     "targets": "all",
     "category": "SocialNetworking",
-    "shortDescription": "Узел SCZ",
-    "longDescription": "SCZ — узел зоны: личность, связь, самообновление. Сайты, мессенджер, игры и репутация открываются в браузере через узел.",
+    "shortDescription": "Узел noet",
+    "longDescription": "noet — узел зоны: личность, связь, самообновление. Сайты, мессенджер, игры и репутация открываются в браузере через узел.",
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -39,7 +39,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/noet-scz/scz/releases/latest/download/latest.json"
+        "https://github.com/noet-scz/noet/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkwRDBCQjM5Qjc0MjYyRTQKUldUa1lrSzNPYnZRa0VYaksxNEdRWnZXVnB5MWR5OXRLeVo5a3Q3OU9PMDk4ZlZsbGdLQ2xRMjEK"
     }

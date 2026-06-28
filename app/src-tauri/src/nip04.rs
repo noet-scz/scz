@@ -1,4 +1,4 @@
-// SCZ — личные сообщения (NIP-04). Шифрование в узле: ECDH(my_priv, their_pub).x как ключ
+// noet — личные сообщения (NIP-04). Шифрование в узле: ECDH(my_priv, their_pub).x как ключ
 // AES-256-CBC. Это Фаза-0 (NIP-04 простой и совместимый); цель NIP-44 по роадмапу.
 
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};

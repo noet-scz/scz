@@ -1,4 +1,4 @@
-// СЦЗ — резолвер (слой доступа, §4.5)
+// noet — резолвер (слой доступа, §4.5)
 //
 // Открыть страницу по ИМЕНИ, а не по хешу:
 //   имя  --(реестр)-->  CID  --(локальный узел IPFS)-->  страница
@@ -23,9 +23,9 @@ async function indexPage(res) {
     .map(([n, r]) => `<li><a href="/${encodeURIComponent(n)}">${esc(n)}</a> &rarr; <code>${esc(r.cid)}</code></li>`)
     .join('') || '<li><i>реестр пуст</i></li>';
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-  res.end(`<!doctype html><meta charset=utf-8><title>СЦЗ · резолвер</title>
+  res.end(`<!doctype html><meta charset=utf-8><title>noet · резолвер</title>
 <body style="font:16px/1.6 system-ui,sans-serif;max-width:42rem;margin:3rem auto;padding:0 1rem;background:#0f1115;color:#e6e6e6">
-<h1>СЦЗ · резолвер (PoC)</h1>
+<h1>noet · резолвер (PoC)</h1>
 <p>имя &rarr; CID (реестр-времянка) &rarr; IPFS (локальный узел, без публичных шлюзов)</p>
 <ul>${items}</ul>`);
 }
@@ -59,7 +59,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(504, { 'content-type': 'text/plain; charset=utf-8' });
       return res.end(`узел не отдал контент (${ipfs.status}): ${buf.toString('utf8').slice(0, 200)}`);
     }
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-scz-name': encodeURIComponent(name), 'x-scz-cid': cid });
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-noet-name': encodeURIComponent(name), 'x-noet-cid': cid });
     return res.end(buf);
   } catch {
     res.writeHead(504, { 'content-type': 'text/plain; charset=utf-8' });

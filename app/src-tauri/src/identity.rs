@@ -1,4 +1,4 @@
-// SCZ — личность. Ключ secp256k1, подпись BIP340 Schnorr (как в Nostr). Всё ТОЛЬКО здесь,
+// noet — личность. Ключ secp256k1, подпись BIP340 Schnorr (как в Nostr). Всё ТОЛЬКО здесь,
 // в Rust: фронтенд приватного ключа не видит и сам не подписывает (правило §1).
 
 use secp256k1::{Keypair, Message, Secp256k1, SecretKey};

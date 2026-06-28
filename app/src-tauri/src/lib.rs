@@ -1,6 +1,6 @@
-// SCZ — узел (бэкбон). Поднимает локальный шлюз (зона для браузера + API подписи),
+// noet — узел (бэкбон). Поднимает локальный шлюз (зона для браузера + API подписи),
 // хранит личность, умеет самообновление (Tauri updater). Нативное окно тонкое: статус,
-// кнопка «Открыть SCZ в браузере», обновление. Всё остальное живёт в браузере.
+// кнопка «Открыть noet в браузере», обновление. Всё остальное живёт в браузере.
 
 mod gateway;
 mod identity;
@@ -20,7 +20,7 @@ struct Node {
 fn cfg_dir(app: &AppHandle) -> PathBuf {
     app.path()
         .app_config_dir()
-        .unwrap_or_else(|_| std::env::temp_dir().join("scz"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("noet"))
 }
 
 #[tauri::command]
@@ -164,5 +164,5 @@ pub fn run() {
             install_update,
         ])
         .run(tauri::generate_context!())
-        .expect("ошибка запуска SCZ");
+        .expect("ошибка запуска noet");
 }

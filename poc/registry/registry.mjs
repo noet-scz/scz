@@ -1,4 +1,4 @@
-// СЦЗ — реестр имён (ВРЕМЯНКА для PoC, §4.3)
+// noet — реестр имён (ВРЕМЯНКА для PoC, §4.3)
 //
 // ⚠️ Судья очерёдности здесь = ЭТОТ сервер, а значит его хозяин = ты.
 //    Это сознательный временный компромисс «бесплатно-но-хозяин». Не продакшен.
@@ -19,7 +19,7 @@ const DB = join(__dir, 'registry.json');
 const PORT = Number(process.env.REGISTRY_PORT || 5050);
 
 // §4.4: резерв системных и односложных имён — только через «мультисиг», не «успел»
-const RESERVED = new Set(['gov', 'core', 'admin', 'root', 'scz', 'sys', 'зона', 'zone', 'ядро', 'гов']);
+const RESERVED = new Set(['gov', 'core', 'admin', 'root', 'noet', 'sys', 'зона', 'zone', 'ядро', 'гов']);
 
 const NAME_RE = /^([a-zа-яё0-9-]{1,32})\.(зона|zone)$/iu;
 const labelOf = (name) => { const m = name.match(NAME_RE); return m ? m[1].toLowerCase() : null; };

@@ -17,8 +17,8 @@ poc/
 ## Как запустить узел
 
 ```fish
-cd /home/nyx/scz/poc
-set -x IPFS_PATH /home/nyx/scz/poc/ipfs-repo
+cd /home/nyx/noet/poc
+set -x IPFS_PATH /home/nyx/noet/poc/ipfs-repo
 ./bin/ipfs daemon            # фоновый узел; локальный шлюз на :8080, API :5001
 ```
 
