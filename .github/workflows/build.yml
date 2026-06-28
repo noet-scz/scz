@@ -1,9 +1,5 @@
 name: build
 
-# Сборка клиента SCZ под Windows, Linux и Android.
-# - push в main / PR: проверка сборки desktop + cargo тесты.
-# - тег v*: полная сборка всех платформ + публикация в Release.
-
 on:
   push:
     branches: [main]
@@ -12,11 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
+permissions:
+  contents: write
 
 jobs:
-  # ---------- Desktop: Linux + Windows ----------
   desktop:
     strategy:
       fail-fast: false
@@ -30,16 +25,16 @@ jobs:
     defaults:
       run:
         working-directory: app
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-
       - name: System deps (Linux)
         if: matrix.name == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
             libayatana-appindicator3-dev build-essential libssl-dev file patchelf
-
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with:
@@ -47,37 +42,24 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
-
       - run: npm install
-      - name: Generate icons
-        run: npx tauri icon src-tauri/icons/icon-source.png
-
-      - name: cargo test (crypto/identity)
+      - run: npx tauri icon src-tauri/icons/icon-source.png
+      - name: cargo test
         working-directory: app/src-tauri
         run: cargo test --locked || cargo test
-
       - name: Disable updater artifacts when signing key is absent
         shell: bash
-        run: |
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-            python - <<'PY'
-import json
-from pathlib import Path
-p = Path('src-tauri/tauri.conf.json')
-data = json.loads(p.read_text())
-data.setdefault('bundle', {})['createUpdaterArtifacts'] = False
-p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-PY
-          fi
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python -c "import json; from pathlib import Path; p=Path('src-tauri/tauri.conf.json'); data=json.loads(p.read_text()); data.setdefault('bundle', {})['createUpdaterArtifacts']=False; p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')"
+          fi
       - name: Build
         run: npx tauri build
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
       - name: Collect bundles
         if: always()
         shell: bash
@@ -86,42 +68,37 @@ PY
           find src-tauri/target/release/bundle -type f \
             \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.exe' \) \
             -exec cp {} ../out/ \; || true
-
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: scz-${{ matrix.name }}
           path: out/*
           if-no-files-found: warn
-
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: app/out/*
 
-  # ---------- Android ----------
   android:
     runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: app
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
+      - uses: android-actions/setup-android@v3
       - name: Install NDK
         run: |
           sdkmanager "ndk;26.1.10909125"
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
@@ -131,48 +108,33 @@ PY
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
-
       - run: npm install
       - run: npx tauri icon src-tauri/icons/icon-source.png
-
       - name: Disable updater artifacts when signing key is absent
         shell: bash
-        run: |
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-            python - <<'PY'
-import json
-from pathlib import Path
-p = Path('src-tauri/tauri.conf.json')
-data = json.loads(p.read_text())
-data.setdefault('bundle', {})['createUpdaterArtifacts'] = False
-p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-PY
-          fi
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-
-      - name: Android init
-        run: npx tauri android init
-
-      - name: Build APK (debug, installable via sideload)
-        run: npx tauri android build --apk --debug
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python -c "import json; from pathlib import Path; p=Path('src-tauri/tauri.conf.json'); data=json.loads(p.read_text()); data.setdefault('bundle', {})['createUpdaterArtifacts']=False; p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')"
+          fi
+      - run: npx tauri android init
+      - run: npx tauri android build --apk --debug
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
       - name: Collect APK
         if: always()
         shell: bash
         run: |
           mkdir -p ../out
           find src-tauri/gen/android -name '*.apk' -exec cp {} ../out/ \; || true
-
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: scz-android
           path: out/*.apk
           if-no-files-found: warn
-
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

@@ -5,8 +5,8 @@ on:
   push:
     tags: ['v*']
 
-env:
-  CARGO_TERM_COLOR: always
+permissions:
+  contents: write
 
 jobs:
   desktop:
@@ -24,16 +24,16 @@ jobs:
     defaults:
       run:
         working-directory: app
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
-
       - name: System deps (Linux)
         if: matrix.name == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
             libayatana-appindicator3-dev build-essential libssl-dev file patchelf
-
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with:
@@ -41,27 +41,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
-
       - run: npm install
       - run: npx tauri icon src-tauri/icons/icon-source.png
-      - name: cargo test (crypto/identity)
+      - name: cargo test
         working-directory: app/src-tauri
         run: cargo test --locked || cargo test
       - name: Disable updater artifacts when signing key is absent
         shell: bash
-        run: |
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-            python - <<'PY'
-import json
-from pathlib import Path
-p = Path('src-tauri/tauri.conf.json')
-data = json.loads(p.read_text())
-data.setdefault('bundle', {})['createUpdaterArtifacts'] = False
-p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-PY
-          fi
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python -c "import json; from pathlib import Path; p=Path('src-tauri/tauri.conf.json'); data=json.loads(p.read_text()); data.setdefault('bundle', {})['createUpdaterArtifacts']=False; p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')"
+          fi
       - name: Build
         run: npx tauri build --bundles ${{ matrix.bundle }}
         env:
@@ -76,9 +68,10 @@ PY
             \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.exe' \) \
             -exec cp {} ../out/ \; || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: scz-${{ matrix.name }}
-          path: app/out/*
+          path: out/*
           if-no-files-found: warn
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -91,14 +84,15 @@ PY
     defaults:
       run:
         working-directory: app
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
       - name: Install NDK
         run: |
           sdkmanager "ndk;26.1.10909125"
@@ -117,19 +111,12 @@ PY
       - run: npx tauri icon src-tauri/icons/icon-source.png
       - name: Disable updater artifacts when signing key is absent
         shell: bash
-        run: |
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-            python - <<'PY'
-import json
-from pathlib import Path
-p = Path('src-tauri/tauri.conf.json')
-data = json.loads(p.read_text())
-data.setdefault('bundle', {})['createUpdaterArtifacts'] = False
-p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-PY
-          fi
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            python -c "import json; from pathlib import Path; p=Path('src-tauri/tauri.conf.json'); data=json.loads(p.read_text()); data.setdefault('bundle', {})['createUpdaterArtifacts']=False; p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')"
+          fi
       - run: npx tauri android init
       - run: npx tauri android build --apk --debug
         env:
@@ -142,9 +129,10 @@ PY
           mkdir -p ../out
           find src-tauri/gen/android -name '*.apk' -exec cp {} ../out/ \; || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: scz-android
-          path: app/out/*.apk
+          path: out/*.apk
           if-no-files-found: warn
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
