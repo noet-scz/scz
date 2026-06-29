@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   desktop:
@@ -28,6 +30,9 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - name: System deps (Linux)
         if: matrix.name == 'linux'
         run: |
@@ -43,6 +48,14 @@ jobs:
           workspaces: app/src-tauri
       - run: npm install
       - run: npx tauri icon src-tauri/icons/icon-source.png
+      - name: Inject version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Building version $VERSION"
+          node -e "const f=require('fs');const p=JSON.parse(f.readFileSync('package.json','utf8'));p.version='$VERSION';f.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const f=require('fs');const p=JSON.parse(f.readFileSync('src-tauri/tauri.conf.json','utf8'));p.version='$VERSION';f.writeFileSync('src-tauri/tauri.conf.json',JSON.stringify(p,null,2)+'\n');"
+          sed -i "0,/^version = /s/^version = .*/version = \"$VERSION\"/" src-tauri/Cargo.toml
       - name: cargo test
         working-directory: app/src-tauri
         run: cargo test --locked || cargo test
@@ -67,8 +80,6 @@ jobs:
           find src-tauri/target/release/bundle -type f \
             \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o -name '*.msi' -o -name '*.exe' \) \
             -exec cp {} ../out/ \; || true
-          cd ../out
-          for f in *; do [ -e "$f" ] || continue; nf=$(echo "$f" | sed 's/^SCZ/noet/; s/^scz/noet/; s/app-universal-debug/noet-0.1.0-universal-debug/'); [ "$f" = "$nf" ] || mv "$f" "$nf"; done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -80,6 +91,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/out/*
+          generate_release_notes: true
 
   android:
     runs-on: ubuntu-22.04
@@ -90,6 +102,9 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -111,6 +126,13 @@ jobs:
           workspaces: app/src-tauri
       - run: npm install
       - run: npx tauri icon src-tauri/icons/icon-source.png
+      - name: Inject version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "const f=require('fs');const p=JSON.parse(f.readFileSync('package.json','utf8'));p.version='$VERSION';f.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          node -e "const f=require('fs');const p=JSON.parse(f.readFileSync('src-tauri/tauri.conf.json','utf8'));p.version='$VERSION';f.writeFileSync('src-tauri/tauri.conf.json',JSON.stringify(p,null,2)+'\n');"
+          sed -i "0,/^version = /s/^version = .*/version = \"$VERSION\"/" src-tauri/Cargo.toml
       - name: Disable updater artifacts when signing key is absent
         shell: bash
         env:
@@ -120,17 +142,65 @@ jobs:
             node -e "const fs=require('fs'); const p='src-tauri\/tauri.conf.json'; const data=JSON.parse(fs.readFileSync(p,'utf8')); data.bundle=data.bundle||{}; data.bundle.createUpdaterArtifacts=false; fs.writeFileSync(p, JSON.stringify(data,null,2)+'\n');"
           fi
       - run: npx tauri android init
-      - run: npx tauri android build --apk --debug
+      - name: Inject release signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/noet.keystore
+            cat >> src-tauri/gen/android/app/build.gradle.kts << 'KTSEOF'
+
+          // Release signing — injected by CI
+          if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+              android {
+                  signingConfigs {
+                      create("release") {
+                          storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH")!!)
+                          storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")!!
+                          keyAlias = System.getenv("ANDROID_KEY_ALIAS")!!
+                          keyPassword = System.getenv("ANDROID_KEY_PASSWORD")!!
+                      }
+                  }
+                  buildTypes {
+                      getByName("release") {
+                          signingConfig = signingConfigs.getByName("release")
+                      }
+                  }
+              }
+          }
+          KTSEOF
+          fi
+      - name: Build APK
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PATH: /tmp/noet.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            npx tauri android build --apk
+          else
+            npx tauri android build --apk --debug
+          fi
       - name: Collect APK
         if: always()
         shell: bash
         run: |
           mkdir -p ../out
-          apk=$(find src-tauri/gen/android -name '*.apk' | head -1 || true)
-          if [ -n "$apk" ]; then cp "$apk" ../out/noet-0.1.0-universal-debug.apk; fi
+          VERSION=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
+          apk=$(find src-tauri/gen/android -name '*.apk' | grep -v '\-unsigned' | head -1 || true)
+          if [ -n "$apk" ]; then
+            if echo "$apk" | grep -q debug; then
+              cp "$apk" "../out/noet-${VERSION}-debug.apk"
+            else
+              cp "$apk" "../out/noet-${VERSION}.apk"
+            fi
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -142,3 +212,65 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/out/*.apk
+          generate_release_notes: true
+
+  # F-Droid: обновить кастомный репозиторий на gh-pages после релиза
+  fdroid:
+    needs: android
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: noet-android
+          path: /tmp/apk
+      - name: Build F-Droid repo
+        env:
+          FDROID_KEYSTORE_BASE64: ${{ secrets.FDROID_KEYSTORE_BASE64 }}
+          FDROID_KEYSTORE_PASSWORD: ${{ secrets.FDROID_KEYSTORE_PASSWORD }}
+          FDROID_KEY_ALIAS: ${{ secrets.FDROID_KEY_ALIAS }}
+          FDROID_KEY_PASSWORD: ${{ secrets.FDROID_KEY_PASSWORD }}
+        run: |
+          pip install fdroidserver --quiet
+
+          # Пропустить если нет ключа репо (первый релиз без настроенных секретов)
+          if [ -z "${FDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "FDROID_KEYSTORE_BASE64 не задан, пропуск F-Droid"
+            exit 0
+          fi
+
+          mkdir -p fdroid-repo/repo
+          cp /tmp/apk/*.apk fdroid-repo/repo/ 2>/dev/null || true
+
+          # Копируем метаданные
+          cp -r fdroid/metadata fdroid-repo/metadata 2>/dev/null || true
+
+          # Расставляем ключ
+          echo "$FDROID_KEYSTORE_BASE64" | base64 -d > fdroid-repo/keystore.p12
+
+          cat > fdroid-repo/config.yml << FDCONF
+          repo_url: "https://noet-scz.github.io/noet/fdroid/repo"
+          repo_name: "noet"
+          repo_description: "noet — self-governed digital zone node"
+          keystore: "keystore.p12"
+          keystorepass: "${FDROID_KEYSTORE_PASSWORD}"
+          keyalias: "${FDROID_KEY_ALIAS}"
+          keypass: "${FDROID_KEY_PASSWORD}"
+          FDCONF
+
+          cd fdroid-repo && fdroid update --create-metadata --pretty
+
+      - name: Push to gh-pages
+        if: env.FDROID_KEYSTORE_BASE64 != ''
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: fdroid-repo
+          destination_dir: fdroid
+          keep_files: true
+        env:
+          FDROID_KEYSTORE_BASE64: ${{ secrets.FDROID_KEYSTORE_BASE64 }}

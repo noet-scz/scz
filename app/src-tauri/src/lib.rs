@@ -1,6 +1,7 @@
 // noet — узел (бэкбон). Поднимает локальный шлюз (зона для браузера + API подписи),
-// хранит личность, умеет самообновление (Tauri updater). Нативное окно тонкое: статус,
-// кнопка «Открыть noet в браузере», обновление. Всё остальное живёт в браузере.
+// хранит личность, умеет самообновление (Tauri updater) и автозапуск с системой.
+// Нативное окно тонкое: статус, кнопка «Открыть noet в браузере», настройки.
+// Всё остальное живёт в браузере.
 
 mod gateway;
 mod identity;
@@ -8,9 +9,12 @@ mod nip04;
 mod relay;
 
 use serde_json::{json, Value};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_updater::UpdaterExt;
 
 struct Node {
@@ -111,6 +115,59 @@ fn storage_info(app: AppHandle) -> Value {
     json!({ "bytes": gateway::dir_size(&cfg), "accounts": gateway::list_accounts(&cfg).len() })
 }
 
+/// Быстрая статистика узла: реле, хранилище, аккаунты. Не ходит в сеть.
+#[tauri::command]
+fn node_stats(app: AppHandle, state: tauri::State<'_, Node>) -> Value {
+    let cfg = cfg_dir(&app);
+    let relay_up = relay::relay_status();
+    let relays: Vec<Value> = relay::RELAYS
+        .iter()
+        .zip(relay_up.iter())
+        .map(|(url, up)| json!({ "url": url, "up": up }))
+        .collect();
+    json!({
+        "port": state.port,
+        "relays": relays,
+        "connected": relay_up.iter().filter(|&&u| u).count(),
+        "relay_total": relay::RELAYS.len(),
+        "bytes": gateway::dir_size(&cfg),
+        "accounts": gateway::list_accounts(&cfg).len(),
+    })
+}
+
+/// Подсчёт уникальных pubkey событий с тегом #t=noet за последние 24 часа.
+/// Это приблизительная метрика активных пользователей noet.
+#[tauri::command]
+async fn active_users() -> u64 {
+    let since = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+        .saturating_sub(86400);
+    let filter = json!([{ "#t": ["noet"], "since": since, "limit": 1000 }]);
+    let events = relay::runtime().spawn(relay::query(filter, 5000)).await.unwrap_or_default();
+    let unique: HashSet<&str> = events
+        .iter()
+        .filter_map(|e| e.get("pubkey").and_then(|p| p.as_str()))
+        .collect();
+    unique.len() as u64
+}
+
+#[tauri::command]
+fn autostart_enable(app: AppHandle) -> Result<(), String> {
+    app.autolaunch().enable().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn autostart_disable(app: AppHandle) -> Result<(), String> {
+    app.autolaunch().disable().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn autostart_is_enabled(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<String>, String> {
     let updater = app.updater().map_err(|e| e.to_string())?;
@@ -136,15 +193,31 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let autostarted = std::env::args().any(|a| a == "--autostarted");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .setup(|app| {
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostarted"]),
+        ))
+        .setup(move |app| {
             let cfg = cfg_dir(&app.handle());
             let _ = fs::create_dir_all(&cfg);
+
+            // Включить автозапуск по умолчанию при первом запуске
+            let first_launch_marker = cfg.join(".autostart_configured");
+            if !first_launch_marker.exists() {
+                let _ = app.autolaunch().enable();
+                let _ = fs::write(&first_launch_marker, "1");
+            }
+
             let _ = relay::runtime(); // прогрев сетевого слоя узла
             let port = gateway::start(cfg).unwrap_or(0);
             app.manage(Node { port });
-            if port != 0 {
+
+            // Не открывать браузер при автозапуске с системой
+            if port != 0 && !autostarted {
                 let _ = open::that(format!("http://127.0.0.1:{}/", port));
             }
             Ok(())
@@ -160,6 +233,11 @@ pub fn run() {
             identity_forget,
             identity_export,
             storage_info,
+            node_stats,
+            active_users,
+            autostart_enable,
+            autostart_disable,
+            autostart_is_enabled,
             check_update,
             install_update,
         ])

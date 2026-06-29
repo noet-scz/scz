@@ -6,13 +6,13 @@
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-const RELAYS: [&str; 3] = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"];
+pub const RELAYS: [&str; 3] = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"];
 
 static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 pub fn runtime() -> &'static tokio::runtime::Runtime {
@@ -23,6 +23,18 @@ pub fn runtime() -> &'static tokio::runtime::Runtime {
             .build()
             .expect("tokio runtime")
     })
+}
+
+// Статус подключения для каждого реле (индекс = позиция в RELAYS)
+static RELAY_UP: OnceLock<[AtomicBool; 3]> = OnceLock::new();
+fn relay_up() -> &'static [AtomicBool; 3] {
+    RELAY_UP.get_or_init(|| [AtomicBool::new(false), AtomicBool::new(false), AtomicBool::new(false)])
+}
+
+/// Текущий статус каждого реле: true = подключено
+pub fn relay_status() -> [bool; 3] {
+    let up = relay_up();
+    [up[0].load(Ordering::Relaxed), up[1].load(Ordering::Relaxed), up[2].load(Ordering::Relaxed)]
 }
 
 struct Pool {
@@ -36,21 +48,23 @@ fn pool() -> &'static Pool {
     POOL.get_or_init(|| {
         let (inbound, _) = broadcast::channel::<String>(8192);
         let mut senders = Vec::new();
-        for url in RELAYS {
+        for (i, url) in RELAYS.iter().enumerate() {
             let (tx, rx) = mpsc::unbounded_channel::<Message>();
             senders.push(tx);
             let ib = inbound.clone();
-            runtime().spawn(relay_task(url, rx, ib));
+            runtime().spawn(relay_task(url, i, rx, ib));
         }
         Pool { senders, inbound }
     })
 }
 
 // одно реле: подключиться, переподключаться при обрыве, гонять сообщения в обе стороны
-async fn relay_task(url: &'static str, mut rx: mpsc::UnboundedReceiver<Message>, inbound: broadcast::Sender<String>) {
+async fn relay_task(url: &'static str, idx: usize, mut rx: mpsc::UnboundedReceiver<Message>, inbound: broadcast::Sender<String>) {
     loop {
+        relay_up()[idx].store(false, Ordering::Relaxed);
         match connect_async(url).await {
             Ok((ws, _)) => {
+                relay_up()[idx].store(true, Ordering::Relaxed);
                 let (mut write, mut read) = ws.split();
                 loop {
                     tokio::select! {

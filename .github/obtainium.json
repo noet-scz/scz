@@ -1,0 +1,11 @@
+{
+  "id": "zone.noet.app",
+  "url": "https://github.com/noet-scz/noet",
+  "author": "noet-scz",
+  "name": "noet",
+  "preferredApkIndex": 0,
+  "apkFilterRegExp": "noet-.*\\.apk$",
+  "versionExtractionRegExp": "noet-([\\d.]+)\\.apk",
+  "matchGroupToUse": "1",
+  "additionalSettings": "{\"includePrereleases\":false}"
+}

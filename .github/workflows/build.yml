@@ -12,6 +12,65 @@ permissions:
   contents: write
 
 jobs:
+  # Автоматически создаёт тег v0.1.x при каждом пуше в main (кроме chore: v* коммитов).
+  # Тег запускает release.yml, который собирает и публикует релиз.
+  bump-version:
+    if: "github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore: v') && github.event_name == 'push'"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Вычислить и создать следующий тег patch-версии
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Текущая версия из package.json
+          BASE=$(node -e "console.log(require('./app/package.json').version)")
+
+          # Последний тег (может быть новее base, если уже бампили)
+          LATEST=$(git tag -l 'v*' | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            TAG_VER="${LATEST#v}"
+            # Берём максимум из base и последнего тега
+            BASE_MAJOR=$(echo $BASE | cut -d. -f1)
+            BASE_MINOR=$(echo $BASE | cut -d. -f2)
+            BASE_PATCH=$(echo $BASE | cut -d. -f3)
+            TAG_MAJOR=$(echo $TAG_VER | cut -d. -f1)
+            TAG_MINOR=$(echo $TAG_VER | cut -d. -f2)
+            TAG_PATCH=$(echo $TAG_VER | cut -d. -f3)
+            # Если тег >= base — бампим от тега
+            if [ "$TAG_MAJOR" -gt "$BASE_MAJOR" ] || \
+               ([ "$TAG_MAJOR" -eq "$BASE_MAJOR" ] && [ "$TAG_MINOR" -gt "$BASE_MINOR" ]) || \
+               ([ "$TAG_MAJOR" -eq "$BASE_MAJOR" ] && [ "$TAG_MINOR" -eq "$BASE_MINOR" ] && [ "$TAG_PATCH" -ge "$BASE_PATCH" ]); then
+              MAJOR=$TAG_MAJOR; MINOR=$TAG_MINOR; PATCH=$TAG_PATCH
+            else
+              MAJOR=$BASE_MAJOR; MINOR=$BASE_MINOR; PATCH=$BASE_PATCH
+            fi
+          else
+            MAJOR=$(echo $BASE | cut -d. -f1)
+            MINOR=$(echo $BASE | cut -d. -f2)
+            PATCH=$(echo $BASE | cut -d. -f3)
+          fi
+
+          NEW_VER="$MAJOR.$MINOR.$((PATCH + 1))"
+          echo "NEW_VER=$NEW_VER" >> $GITHUB_ENV
+
+          # Проверить что такого тега ещё нет
+          if git rev-parse "v$NEW_VER" >/dev/null 2>&1; then
+            echo "Тег v$NEW_VER уже существует, пропуск"
+            exit 0
+          fi
+
+          git tag "v$NEW_VER"
+          git push origin "v$NEW_VER"
+          echo "Создан тег v$NEW_VER"
+
   desktop:
     strategy:
       fail-fast: false
@@ -121,17 +180,65 @@ jobs:
             node -e "const fs=require('fs'); const p='src-tauri\/tauri.conf.json'; const data=JSON.parse(fs.readFileSync(p,'utf8')); data.bundle=data.bundle||{}; data.bundle.createUpdaterArtifacts=false; fs.writeFileSync(p, JSON.stringify(data,null,2)+'\n');"
           fi
       - run: npx tauri android init
-      - run: npx tauri android build --apk --debug
+      - name: Inject release signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/noet.keystore
+            cat >> src-tauri/gen/android/app/build.gradle.kts << 'KTSEOF'
+
+          // Release signing — injected by CI
+          if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+              android {
+                  signingConfigs {
+                      create("release") {
+                          storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH")!!)
+                          storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")!!
+                          keyAlias = System.getenv("ANDROID_KEY_ALIAS")!!
+                          keyPassword = System.getenv("ANDROID_KEY_PASSWORD")!!
+                      }
+                  }
+                  buildTypes {
+                      getByName("release") {
+                          signingConfig = signingConfigs.getByName("release")
+                      }
+                  }
+              }
+          }
+          KTSEOF
+          fi
+      - name: Build APK
+        shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PATH: /tmp/noet.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            npx tauri android build --apk
+          else
+            npx tauri android build --apk --debug
+          fi
       - name: Collect APK
         if: always()
         shell: bash
         run: |
           mkdir -p ../out
-          apk=$(find src-tauri/gen/android -name '*.apk' | head -1 || true)
-          if [ -n "$apk" ]; then cp "$apk" ../out/noet-0.1.0-universal-debug.apk; fi
+          VERSION=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
+          apk=$(find src-tauri/gen/android -name '*.apk' | grep -v '\-unsigned' | head -1 || true)
+          if [ -n "$apk" ]; then
+            if echo "$apk" | grep -q debug; then
+              cp "$apk" "../out/noet-${VERSION}-debug.apk"
+            else
+              cp "$apk" "../out/noet-${VERSION}.apk"
+            fi
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

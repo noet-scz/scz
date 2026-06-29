@@ -168,6 +168,25 @@ fn handle(mut req: Request, cfg: &Path) {
     }
 }
 
+// Добавляет ["t","noet"] к публичным событиям (kind 1, 31002, 31111) для подсчёта активных
+// пользователей noet. Не добавляется к DM (kind 4) и служебным событиям.
+fn add_noet_tag(mut ev: Value) -> Value {
+    const PUBLIC_KINDS: &[i64] = &[1, 31002, 31111];
+    let kind = ev.get("kind").and_then(|k| k.as_i64()).unwrap_or(-1);
+    if PUBLIC_KINDS.contains(&kind) {
+        if let Some(tags) = ev.get_mut("tags").and_then(|t| t.as_array_mut()) {
+            let already = tags.iter().any(|tag| {
+                tag.get(0).and_then(|x| x.as_str()) == Some("t")
+                    && tag.get(1).and_then(|x| x.as_str()) == Some("noet")
+            });
+            if !already {
+                tags.push(json!(["t", "noet"]));
+            }
+        }
+    }
+    ev
+}
+
 fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Value) {
     match (method, path) {
         (&Method::Get, "/api/identity/status") => match read_key(cfg) {
@@ -193,6 +212,7 @@ fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Valu
             None => (401, json!({ "error": "no_key" })),
             Some(sk) => {
                 let tmpl: Value = serde_json::from_str(body).unwrap_or(json!({}));
+                let tmpl = add_noet_tag(tmpl);
                 match identity::sign_event(&sk, &tmpl) {
                     Ok(signed) => {
                         crate::relay::runtime().block_on(crate::relay::publish(signed.clone()));
@@ -205,10 +225,13 @@ fn handle_api(cfg: &Path, method: &Method, path: &str, body: &str) -> (u16, Valu
         (&Method::Post, "/api/nostr/sign") => match read_key(cfg) {
             None => (401, json!({ "error": "no_key" })),
             Some(sk) => match serde_json::from_str::<Value>(body) {
-                Ok(ev) => match identity::sign_event(&sk, &ev) {
-                    Ok(signed) => (200, signed),
-                    Err(e) => (400, json!({ "error": e })),
-                },
+                Ok(ev) => {
+                    let ev = add_noet_tag(ev);
+                    match identity::sign_event(&sk, &ev) {
+                        Ok(signed) => (200, signed),
+                        Err(e) => (400, json!({ "error": e })),
+                    }
+                }
                 Err(_) => (400, json!({ "error": "bad_json" })),
             },
         },

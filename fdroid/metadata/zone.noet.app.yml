@@ -1,0 +1,32 @@
+Categories:
+  - Internet
+  - Social
+
+License: MIT
+
+WebSite: https://github.com/noet-scz/noet
+SourceCode: https://github.com/noet-scz/noet
+IssueTracker: https://github.com/noet-scz/noet/issues
+
+AutoName: noet
+
+Summary: Self-governed digital zone node
+Description: |
+  noet is a censorship-resistant infrastructure node for digital communities.
+  It manages your cryptographic identity (secp256k1/Nostr), runs a local gateway
+  serving the noet zone in your browser, and connects to public Nostr relays.
+  All signing happens in the Rust backend — your private key never touches the browser.
+
+Builds:
+  - versionName: '0.1.0'
+    versionCode: 1
+    commit: v0.1.0
+    subdir: app
+    sudo:
+      - apt-get update
+      - apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev build-essential
+    build:
+      - npm install
+      - npx tauri android build --apk
+
+AllowedAPKSigningKeys: auto

@@ -13,7 +13,10 @@
     "build:linux": "tauri build --bundles appimage,deb,rpm",
     "build:windows": "tauri build --bundles nsis,msi",
     "android:init": "tauri android init",
-    "build:android:apk": "tauri android build --apk --debug"
+    "build:android:apk": "tauri android build --apk --debug",
+    "bump": "node ../scripts/bump.js",
+    "bump:minor": "node ../scripts/bump.js minor",
+    "bump:major": "node ../scripts/bump.js major"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
